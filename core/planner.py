@@ -44,16 +44,18 @@ User request: {user_request}
 
 Decide your next action. Respond with JSON only."""
 
-    response = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_prompt},
-        ],
-        temperature=0,
-    )
-
-    raw = response.choices[0].message.content.strip()
+    try:
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0,
+        )
+        raw = response.choices[0].message.content.strip()
+    except Exception as e:
+        return {"action": "no_tool_fits", "reason": f"Planner API call failed: {str(e)}"}
 
     # Strip markdown code fences if the model adds them despite instructions
     if raw.startswith("```"):

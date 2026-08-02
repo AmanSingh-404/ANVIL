@@ -1,6 +1,7 @@
 from core.planner import plan
 from tools.calculator import CalculatorTool
 from tools.read_file import ReadFileTool
+from core.session import Session
 
 MAX_ITERATIONS = 5
 
@@ -15,12 +16,14 @@ def get_tool_descriptions() -> list:
     return [tool.to_registry_entry() for tool in TOOL_INSTANCES.values()]
 
 
-def run_agent(user_request: str) -> str:
-    conversation_context = ""
+
+def run_agent(user_request: str, session: Session) -> str:
     tools_available = get_tool_descriptions()
+    task_context = ""  # scoped to this single task's tool-call trace
 
     for iteration in range(MAX_ITERATIONS):
-        decision = plan(user_request, tools_available, conversation_context)
+        full_context = session.as_context_string() + "\n" + task_context
+        decision = plan(user_request, tools_available, full_context)
         action = decision.get("action")
 
         print(f"\n[Iteration {iteration + 1}] Planner decided: {action}")
@@ -34,24 +37,18 @@ def run_agent(user_request: str) -> str:
 
             tool = TOOL_INSTANCES.get(tool_name)
             if not tool:
-                conversation_context += f"\n[System] Tool '{tool_name}' does not exist."
+                task_context += f"\n[System] Tool '{tool_name}' does not exist."
                 continue
 
             print(f"  → Calling {tool_name} with {arguments}")
             result = tool.run(**arguments)
             print(f"  → Result: {result}")
 
-            conversation_context += (
-                f"\n[Tool Call] {tool_name}({arguments}) -> {result}"
-            )
-            # Loop continues — Planner sees this result on the next iteration
-            # and decides whether to answer now or call another tool.
+            task_context += f"\n[Tool Call] {tool_name}({arguments}) -> {result}"
 
         elif action == "no_tool_fits":
             reason = decision.get("reason", "Unknown capability gap.")
             return f"[NO_TOOL_FITS] {reason}"
-            # This is the exact hook Phase 3 (Tool Forge) will replace —
-            # instead of giving up, it'll trigger tool creation here.
 
         else:
             return f"[ERROR] Unrecognized planner action: {action}"
@@ -61,9 +58,12 @@ def run_agent(user_request: str) -> str:
 
 if __name__ == "__main__":
     print("ANVIL — type your request (or 'exit' to quit)\n")
+    session = Session()
     while True:
         user_input = input("You: ").strip()
         if user_input.lower() in ("exit", "quit"):
             break
-        answer = run_agent(user_input)
+        answer = run_agent(user_input, session)
+        session.add_turn("user", user_input)
+        session.add_turn("agent", answer)
         print(f"\nANVIL: {answer}\n")

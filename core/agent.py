@@ -41,7 +41,10 @@ def run_agent(user_request: str, session: Session) -> str:
                 continue
 
             print(f"  → Calling {tool_name} with {arguments}")
-            result = tool.run(**arguments)
+            try:
+                result = tool.run(**arguments)
+            except Exception as e:
+                result = {"success": False, "error": f"Tool crashed: {str(e)}"}
             print(f"  → Result: {result}")
 
             task_context += f"\n[Tool Call] {tool_name}({arguments}) -> {result}"

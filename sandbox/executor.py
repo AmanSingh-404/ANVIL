@@ -9,15 +9,30 @@ DEFAULT_TIMEOUT_SECONDS = 5
 DEFAULT_MEMORY_LIMIT_MB = 100
 
 
+def _total_memory_mb(ps_proc: psutil.Process) -> float:
+    """
+    Sums RSS memory across the process AND all its descendants —
+    on Windows, venv's python.exe can spawn a child interpreter that
+    does the real work, so measuring only the parent undercounts badly.
+    """
+    total_bytes = 0
+    try:
+        total_bytes += ps_proc.memory_info().rss
+        for child in ps_proc.children(recursive=True):
+            try:
+                total_bytes += child.memory_info().rss
+            except psutil.NoSuchProcess:
+                continue
+    except psutil.NoSuchProcess:
+        pass
+    return total_bytes / (1024 * 1024)
+
+
 def run_in_sandbox(
     code: str,
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
     memory_limit_mb: int = DEFAULT_MEMORY_LIMIT_MB,
 ) -> dict:
-    """
-    Executes a string of Python code in an isolated subprocess,
-    enforcing both a timeout and a memory ceiling.
-    """
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".py", delete=False, encoding="utf-8"
     ) as tmp:
@@ -33,7 +48,6 @@ def run_in_sandbox(
             text=True,
         )
         ps_proc = psutil.Process(proc.pid)
-        print(f"    [debug] Popen reports child pid={proc.pid}")  # TEMP DEBUG
         start_time = time.time()
         killed_reason = None
 
@@ -45,18 +59,13 @@ def run_in_sandbox(
                 proc.kill()
                 break
 
-            try:
-                mem_mb = ps_proc.memory_info().rss / (1024 * 1024)
-                children = ps_proc.children(recursive=True)
-                print(f"    [debug] pid={ps_proc.pid} name={ps_proc.name()} mem={mem_mb:.1f} MB children={children}")  # TEMP DEBUG
-                if mem_mb > memory_limit_mb:
-                    killed_reason = f"Memory limit of {memory_limit_mb}MB exceeded."
-                    proc.kill()
-                    break
-            except psutil.NoSuchProcess:
+            mem_mb = _total_memory_mb(ps_proc)
+            if mem_mb > memory_limit_mb:
+                killed_reason = f"Memory limit of {memory_limit_mb}MB exceeded (used {mem_mb:.1f}MB)."
+                proc.kill()
                 break
 
-            time.sleep(0.05)  # poll interval
+            time.sleep(0.05)
 
         stdout, stderr = proc.communicate()
 

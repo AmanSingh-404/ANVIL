@@ -46,7 +46,7 @@ def run_in_sandbox(
 
             try:
                 mem_mb = ps_proc.memory_info().rss / (1024 * 1024)
-                print(f"    [debug] measured memory: {mem_mb:.1f} MB")  # TEMP DEBUG
+                print(f"    [debug] pid={ps_proc.pid} name={ps_proc.name()} mem={mem_mb:.1f} MB")  # TEMP DEBUG
                 if mem_mb > memory_limit_mb:
                     killed_reason = f"Memory limit of {memory_limit_mb}MB exceeded."
                     proc.kill()

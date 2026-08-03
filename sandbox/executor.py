@@ -2,44 +2,79 @@ import subprocess
 import sys
 import os
 import tempfile
+import psutil
+import time
 
 DEFAULT_TIMEOUT_SECONDS = 5
+DEFAULT_MEMORY_LIMIT_MB = 100
 
 
-def run_in_sandbox(code: str, timeout: int = DEFAULT_TIMEOUT_SECONDS) -> dict:
+def run_in_sandbox(
+    code: str,
+    timeout: int = DEFAULT_TIMEOUT_SECONDS,
+    memory_limit_mb: int = DEFAULT_MEMORY_LIMIT_MB,
+) -> dict:
     """
-    Executes a string of Python code in an isolated subprocess.
-    Returns a structured result — never raises to the caller.
+    Executes a string of Python code in an isolated subprocess,
+    enforcing both a timeout and a memory ceiling.
     """
-    # Write the code to a temp file rather than passing via -c,
-    # so tracebacks reference a real filename (easier to debug later).
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".py", delete=False, encoding="utf-8"
     ) as tmp:
         tmp.write(code)
         tmp_path = tmp.name
 
+    proc = None
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [sys.executable, tmp_path],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=timeout,
         )
+        ps_proc = psutil.Process(proc.pid)
+        start_time = time.time()
+        killed_reason = None
+
+        while proc.poll() is None:
+            elapsed = time.time() - start_time
+
+            if elapsed > timeout:
+                killed_reason = f"Execution timed out after {timeout} seconds."
+                proc.kill()
+                break
+
+            try:
+                mem_mb = ps_proc.memory_info().rss / (1024 * 1024)
+                if mem_mb > memory_limit_mb:
+                    killed_reason = f"Memory limit of {memory_limit_mb}MB exceeded."
+                    proc.kill()
+                    break
+            except psutil.NoSuchProcess:
+                break
+
+            time.sleep(0.05)  # poll interval
+
+        stdout, stderr = proc.communicate()
+
+        if killed_reason:
+            return {
+                "success": False,
+                "stdout": stdout,
+                "stderr": killed_reason,
+                "returncode": None,
+            }
+
         return {
-            "success": result.returncode == 0,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "returncode": result.returncode,
+            "success": proc.returncode == 0,
+            "stdout": stdout,
+            "stderr": stderr,
+            "returncode": proc.returncode,
         }
-    except subprocess.TimeoutExpired:
-        return {
-            "success": False,
-            "stdout": "",
-            "stderr": f"Execution timed out after {timeout} seconds.",
-            "returncode": None,
-        }
+
     except Exception as e:
+        if proc:
+            proc.kill()
         return {
             "success": False,
             "stdout": "",

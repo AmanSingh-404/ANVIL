@@ -58,10 +58,9 @@ def run_agent(user_request: str, session: Session) -> str:
             forge_result = forge_tool(user_request, reason)
 
             if forge_result.get("success"):
-                task_context += f"\n[System] A new tool was forged: {forge_result}"
-                # Loop continues — next iteration, Planner should see the new tool
-                # (once Step 3.3+ actually registers it) and can use it.
-                continue
+                generated_code = forge_result.get("generated_code", "")
+                print(f"\n  === GENERATED CODE ===\n{generated_code}\n  === END ===\n")
+                return "[FORGE_PREVIEW] Code generated above — not yet tested or registered (Step 3.3 next)."
             else:
                 return f"[FORGE_FAILED] Could not create a tool for this task. Reason: {forge_result.get('error')}"
 

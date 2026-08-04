@@ -2,6 +2,8 @@ import os
 import json
 from groq import Groq
 from dotenv import load_dotenv
+import re
+from sandbox.executor import run_in_sandbox
 
 load_dotenv()
 
@@ -113,16 +115,81 @@ Write 2-3 test cases for it."""
     except (ValueError, SyntaxError):
         return []  # if parsing fails, we'll treat it as "no tests generated" downstream
 
-def forge_tool(task_description: str, reason: str) -> dict:
+def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dict:
     """
     Given a task the agent couldn't accomplish with existing tools,
-    attempts to generate a brand-new tool to fill that gap.
+    generates a new tool, tests it in the sandbox, and reports the outcome.
+    Registration (Phase 4) comes next — for now we just validate.
     """
-    generated_code = generate_tool_code(task_description, reason)
-    test_cases = generate_test_cases(generated_code)
+    last_error = None
+
+    for attempt in range(1, max_attempts + 1):
+        generated_code = generate_tool_code(task_description, reason)
+        class_name = _extract_class_name(generated_code)
+
+        if not class_name:
+            last_error = "Could not find a valid Tool subclass in generated code."
+            continue
+
+        test_cases = generate_test_cases(generated_code)
+        if not test_cases:
+            last_error = "Could not generate valid test cases."
+            continue
+
+        test_script = _build_test_script(generated_code, class_name, test_cases)
+        sandbox_result = run_in_sandbox(test_script, timeout=10)
+
+        if sandbox_result["success"] and "ALL_PASSED" in sandbox_result["stdout"]:
+            return {
+                "success": True,
+                "generated_code": generated_code,
+                "class_name": class_name,
+                "test_cases": test_cases,
+                "test_output": sandbox_result["stdout"],
+                "attempts": attempt,
+            }
+        else:
+            last_error = (
+                f"Tests failed.\nstdout: {sandbox_result['stdout']}\nstderr: {sandbox_result['stderr']}"
+            )
+            # Loop continues — retry with a fresh generation attempt
 
     return {
-        "success": True,
-        "generated_code": generated_code,
-        "test_cases": test_cases,
+        "success": False,
+        "error": f"Failed after {max_attempts} attempts. Last error: {last_error}",
     }
+
+def _extract_class_name(tool_code: str) -> str:
+    match = re.search(r"class\s+(\w+)\s*\(\s*Tool\s*\)", tool_code)
+    return match.group(1) if match else None
+
+
+def _build_test_script(tool_code: str, class_name: str, test_cases: list) -> str:
+    test_script = f'''
+import sys
+sys.path.insert(0, r"{os.getcwd()}")
+from core.tool_base import Tool
+
+{tool_code}
+
+instance = {class_name}()
+test_cases = {test_cases}
+
+all_passed = True
+for i, case in enumerate(test_cases):
+    try:
+        result = instance.run(**case["input"])
+        actual_success = result.get("success", False)
+        expected_success = case["expect_success"]
+        if actual_success == expected_success:
+            print(f"TEST {{i}} PASS")
+        else:
+            print(f"TEST {{i}} FAIL - expected success={{expected_success}}, got {{actual_success}}, result={{result}}")
+            all_passed = False
+    except Exception as e:
+        print(f"TEST {{i}} ERROR - {{e}}")
+        all_passed = False
+
+print("ALL_PASSED" if all_passed else "SOME_FAILED")
+'''
+    return test_script

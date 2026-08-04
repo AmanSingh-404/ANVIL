@@ -65,6 +65,54 @@ Write a new Tool class that would accomplish this task. Follow all requirements 
     return raw
 
 
+TEST_GEN_SYSTEM_PROMPT = """You are a test-writer for AI-generated tools.
+
+Given a Tool class's code, write 2-3 simple test cases as a Python list of dicts.
+Each dict must have:
+- "input": a dict of kwargs to pass to run()
+- "expect_success": True or False (whether you expect this call to succeed)
+
+Output ONLY a valid Python list literal, nothing else. No markdown, no explanation.
+
+Example output:
+[
+    {"input": {"text": "hello"}, "expect_success": True},
+    {"input": {}, "expect_success": True}
+]
+"""
+
+
+def generate_test_cases(tool_code: str) -> list:
+    user_prompt = f"""Here is the tool code:
+
+{tool_code}
+
+Write 2-3 test cases for it."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": TEST_GEN_SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
+        ],
+        temperature=0,
+    )
+
+    raw = response.choices[0].message.content.strip()
+
+    if raw.startswith("```"):
+        raw = raw.strip("`")
+        if raw.startswith("python"):
+            raw = raw[6:]
+        raw = raw.strip()
+
+    try:
+        import ast
+        test_cases = ast.literal_eval(raw)
+        return test_cases
+    except (ValueError, SyntaxError):
+        return []  # if parsing fails, we'll treat it as "no tests generated" downstream
+
 def forge_tool(task_description: str, reason: str) -> dict:
     """
     Given a task the agent couldn't accomplish with existing tools,

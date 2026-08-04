@@ -2,6 +2,7 @@ from core.planner import plan
 from tools.calculator import CalculatorTool
 from tools.read_file import ReadFileTool
 from core.session import Session
+from forge.tool_forge import forge_tool
 
 MAX_ITERATIONS = 5
 
@@ -51,7 +52,18 @@ def run_agent(user_request: str, session: Session) -> str:
 
         elif action == "no_tool_fits":
             reason = decision.get("reason", "Unknown capability gap.")
-            return f"[NO_TOOL_FITS] {reason}"
+            print(f"  → No existing tool fits. Reason: {reason}")
+            print(f"  → Attempting to forge a new tool...")
+
+            forge_result = forge_tool(user_request, reason)
+
+            if forge_result.get("success"):
+                task_context += f"\n[System] A new tool was forged: {forge_result}"
+                # Loop continues — next iteration, Planner should see the new tool
+                # (once Step 3.3+ actually registers it) and can use it.
+                continue
+            else:
+                return f"[FORGE_FAILED] Could not create a tool for this task. Reason: {forge_result.get('error')}"
 
         else:
             return f"[ERROR] Unrecognized planner action: {action}"

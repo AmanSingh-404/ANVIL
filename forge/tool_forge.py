@@ -119,10 +119,10 @@ def forge_tool(task_description: str, reason: str) -> dict:
     attempts to generate a brand-new tool to fill that gap.
     """
     generated_code = generate_tool_code(task_description, reason)
+    test_cases = generate_test_cases(generated_code)
 
-    # For now, just return the generated code — testing/sandboxing
-    # comes in Step 3.3-3.4. We want to SEE what gets generated first.
     return {
         "success": True,
         "generated_code": generated_code,
+        "test_cases": test_cases,
     }

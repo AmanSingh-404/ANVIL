@@ -33,18 +33,32 @@ def run_in_sandbox(
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
     memory_limit_mb: int = DEFAULT_MEMORY_LIMIT_MB,
 ) -> dict:
-    NETWORK_BLOCK_HEADER = '''
+    SCRATCH_DIR_ABS = os.path.abspath("scratch").replace("\\", "\\\\")
+
+    SANDBOX_RESTRICTIONS_HEADER = f'''
 import socket as _socket
+import builtins as _builtins
+import os as _os
 
 def _blocked_socket(*args, **kwargs):
     raise OSError("Network access is disabled in the ANVIL sandbox.")
 
 _socket.socket = _blocked_socket
 _socket.create_connection = _blocked_socket
+
+_SCRATCH_DIR = "{SCRATCH_DIR_ABS}"
+_real_open = _builtins.open
+
+def _restricted_open(file, *args, **kwargs):
+    target = _os.path.abspath(str(file))
+    if not target.startswith(_SCRATCH_DIR):
+        raise OSError(f"File access outside scratch directory is not allowed: {{file}}")
+    return _real_open(file, *args, **kwargs)
+
+_builtins.open = _restricted_open
 '''
 
-    full_code = NETWORK_BLOCK_HEADER + "\n" + code
-
+    full_code = SANDBOX_RESTRICTIONS_HEADER + "\n" + code
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".py", delete=False, encoding="utf-8"
     ) as tmp:

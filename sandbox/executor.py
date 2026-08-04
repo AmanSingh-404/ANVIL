@@ -33,10 +33,22 @@ def run_in_sandbox(
     timeout: int = DEFAULT_TIMEOUT_SECONDS,
     memory_limit_mb: int = DEFAULT_MEMORY_LIMIT_MB,
 ) -> dict:
+    NETWORK_BLOCK_HEADER = '''
+import socket as _socket
+
+def _blocked_socket(*args, **kwargs):
+    raise OSError("Network access is disabled in the ANVIL sandbox.")
+
+_socket.socket = _blocked_socket
+_socket.create_connection = _blocked_socket
+'''
+
+    full_code = NETWORK_BLOCK_HEADER + "\n" + code
+
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".py", delete=False, encoding="utf-8"
     ) as tmp:
-        tmp.write(code)
+        tmp.write(full_code)
         tmp_path = tmp.name
 
     proc = None

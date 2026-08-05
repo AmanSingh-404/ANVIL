@@ -4,6 +4,7 @@ from groq import Groq
 from dotenv import load_dotenv
 import re
 from sandbox.executor import run_in_sandbox
+from .forge_log import log_forge_attempt
 
 load_dotenv()
 
@@ -146,7 +147,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
         sandbox_result = run_in_sandbox(test_script, timeout=10)
 
         if sandbox_result["success"] and "ALL_PASSED" in sandbox_result["stdout"]:
-            return {
+            result = {
                 "success": True,
                 "generated_code": generated_code,
                 "class_name": class_name,
@@ -154,16 +155,22 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
                 "test_output": sandbox_result["stdout"],
                 "attempts": attempt,
             }
+            log_forge_attempt(task_description, reason, result)
+            return result
         else:
             last_error = (
                 f"Tests failed.\nstdout: {sandbox_result['stdout']}\nstderr: {sandbox_result['stderr']}"
             )
             # Loop continues — retry with a fresh generation attempt
 
-    return {
+    # Only reached if the loop finishes without ever returning above —
+    # i.e. every attempt failed.
+    final_result = {
         "success": False,
         "error": f"Failed after {max_attempts} attempts. Last error: {last_error}",
     }
+    log_forge_attempt(task_description, reason, final_result)
+    return final_result
 
 def _extract_class_name(tool_code: str) -> str:
     match = re.search(r"class\s+(\w+)\s*\(\s*Tool\s*\)", tool_code)

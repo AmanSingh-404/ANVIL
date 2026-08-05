@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 import re
 from sandbox.executor import run_in_sandbox
 from .forge_log import log_forge_attempt
+from registry.registry import add_tool
 
 load_dotenv()
 
@@ -147,10 +148,22 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
         sandbox_result = run_in_sandbox(test_script, timeout=10)
 
         if sandbox_result["success"] and "ALL_PASSED" in sandbox_result["stdout"]:
+            tool_name, description, input_schema = _extract_tool_metadata(generated_code, class_name)
+
+            add_tool(
+                name=tool_name,
+                description=description,
+                input_schema=input_schema,
+                code=generated_code,
+                class_name=class_name,
+                source="forged",
+            )
+
             result = {
                 "success": True,
                 "generated_code": generated_code,
                 "class_name": class_name,
+                "tool_name": tool_name,
                 "test_cases": test_cases,
                 "test_output": sandbox_result["stdout"],
                 "attempts": attempt,
@@ -171,6 +184,19 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
     }
     log_forge_attempt(task_description, reason, final_result)
     return final_result
+
+def _extract_tool_metadata(tool_code: str, class_name: str):
+    """
+    Actually imports the generated code in-process to read its class
+    attributes cleanly, rather than regex-parsing them out of source text.
+    Safe here because this code has ALREADY passed sandbox testing —
+    we only do this AFTER validation, never before.
+    """
+    namespace = {}
+    exec_globals = {"Tool": __import__("core.tool_base", fromlist=["Tool"]).Tool}
+    exec(tool_code, exec_globals, namespace)
+    tool_class = namespace[class_name]
+    return tool_class.name, tool_class.description, tool_class.input_schema
 
 def _extract_class_name(tool_code: str) -> str:
     match = re.search(r"class\s+(\w+)\s*\(\s*Tool\s*\)", tool_code)

@@ -5,6 +5,7 @@ from core.session import Session
 from forge.tool_forge import forge_tool
 from registry.registry import list_tools
 import json
+from registry.registry import get_tool_by_name
 
 MAX_ITERATIONS = 5
 
@@ -48,17 +49,32 @@ def run_agent(user_request: str, session: Session) -> str:
             arguments = decision.get("arguments", {})
 
             tool = TOOL_INSTANCES.get(tool_name)
-            if not tool:
-                task_context += f"\n[System] Tool '{tool_name}' does not exist."
-                continue
 
-            print(f"  → Calling {tool_name} with {arguments}")
-            try:
-                result = tool.run(**arguments)
-            except Exception as e:
-                result = {"success": False, "error": f"Tool crashed: {str(e)}"}
+            if tool:
+                print(f"  → Calling hardcoded tool {tool_name} with {arguments}")
+                try:
+                    result = tool.run(**arguments)
+                except Exception as e:
+                    result = {"success": False, "error": f"Tool crashed: {str(e)}"}
+            else:
+                # Not hardcoded — try loading it from the registry
+                stored_tool = get_tool_by_name(tool_name)
+                if not stored_tool:
+                    task_context += f"\n[System] Tool '{tool_name}' does not exist."
+                    continue
+
+                print(f"  → Calling forged tool {tool_name} with {arguments}")
+                try:
+                    namespace = {}
+                    exec_globals = {"Tool": __import__("core.tool_base", fromlist=["Tool"]).Tool}
+                    exec(stored_tool["code"], exec_globals, namespace)
+                    tool_class = namespace[stored_tool["class_name"]]
+                    instance = tool_class()
+                    result = instance.run(**arguments)
+                except Exception as e:
+                    result = {"success": False, "error": f"Forged tool crashed: {str(e)}"}
+
             print(f"  → Result: {result}")
-
             task_context += f"\n[Tool Call] {tool_name}({arguments}) -> {result}"
 
         elif action == "no_tool_fits":

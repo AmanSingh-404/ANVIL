@@ -39,12 +39,18 @@ class ExampleTool(Tool):
 """
 
 
-def generate_tool_code(task_description: str, reason: str) -> str:
+def generate_tool_code(task_description: str, reason: str, prior_failure: str = None) -> str:
     user_prompt = f"""A user requested: "{task_description}"
 
 No existing tool could handle it. Reason: {reason}
 
 Write a new Tool class that would accomplish this task. Follow all requirements exactly."""
+
+    if prior_failure:
+        user_prompt += f"""
+
+IMPORTANT: A previous attempt failed. Here is what went wrong — fix this specific issue:
+{prior_failure}"""
 
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
@@ -124,7 +130,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
     last_error = None
 
     for attempt in range(1, max_attempts + 1):
-        generated_code = generate_tool_code(task_description, reason)
+        generated_code = generate_tool_code(task_description, reason, prior_failure=last_error)
         class_name = _extract_class_name(generated_code)
 
         if not class_name:

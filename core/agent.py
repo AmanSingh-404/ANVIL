@@ -58,11 +58,12 @@ def run_agent(user_request: str, session: Session) -> str:
             forge_result = forge_tool(user_request, reason)
 
             if forge_result.get("success"):
-                generated_code = forge_result.get("generated_code", "")
-                test_cases = forge_result.get("test_cases", [])
-                print(f"\n  === GENERATED CODE ===\n{generated_code}\n  === END ===\n")
-                print(f"  === GENERATED TESTS ===\n{test_cases}\n  === END ===\n")
-                return "[FORGE_PREVIEW] Code + tests generated above — not yet sandbox-tested or registered (Step 3.4 next)."
+                print(f"\n  === TOOL FORGED AND VALIDATED ===")
+                print(f"  Class: {forge_result.get('class_name')}")
+                print(f"  Attempts: {forge_result.get('attempts')}")
+                print(f"  Test output:\n{forge_result.get('test_output')}")
+                print(f"  === END ===\n")
+                return "[FORGE_SUCCESS] Tool validated in sandbox — not yet registered for reuse (Step 4 next)."
             else:
                 return f"[FORGE_FAILED] Could not create a tool for this task. Reason: {forge_result.get('error')}"
 

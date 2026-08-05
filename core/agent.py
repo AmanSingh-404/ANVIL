@@ -3,6 +3,8 @@ from tools.calculator import CalculatorTool
 from tools.read_file import ReadFileTool
 from core.session import Session
 from forge.tool_forge import forge_tool
+from registry.registry import list_tools
+import json
 
 MAX_ITERATIONS = 5
 
@@ -14,7 +16,16 @@ TOOL_INSTANCES = {
 
 
 def get_tool_descriptions() -> list:
-    return [tool.to_registry_entry() for tool in TOOL_INSTANCES.values()]
+    hardcoded = [tool.to_registry_entry() for tool in TOOL_INSTANCES.values()]
+    forged = [
+        {
+            "name": t["name"],
+            "description": t["description"],
+            "input_schema": json.loads(t["input_schema"]),
+        }
+        for t in list_tools()
+    ]
+    return hardcoded + forged
 
 
 

@@ -10,6 +10,7 @@ from core.approval import request_approval
 from registry.registry import increment_approval_count, mark_auto_approved
 from core.approval import request_approval, offer_graduation
 from core.audit_log import log_approval_event
+from registry.vector_store import query_relevant_tools
 
 MAX_ITERATIONS = 5
 
@@ -20,23 +21,31 @@ TOOL_INSTANCES = {
 }
 
 
-def get_tool_descriptions() -> list:
+def get_tool_descriptions(task_description: str = None, top_k: int = 5) -> list:
     hardcoded = [tool.to_registry_entry() for tool in TOOL_INSTANCES.values()]
-    forged = [
-        {
+    all_forged = {
+        t["name"]: {
             "name": t["name"],
             "description": t["description"],
             "input_schema": json.loads(t["input_schema"]),
         }
         for t in list_tools()
-    ]
-    return hardcoded + forged
+    }
+
+    if task_description is None or len(all_forged) <= top_k:
+        # Small registry or no task context yet — just return everything
+        return hardcoded + list(all_forged.values())
+
+    relevant_names = query_relevant_tools(task_description, top_k=top_k)
+    forged_subset = [all_forged[name] for name in relevant_names if name in all_forged]
+    return hardcoded + forged_subset
 
 
 
 def run_agent(user_request: str, session: Session) -> str:
-    tools_available = get_tool_descriptions()
+    tools_available = get_tool_descriptions(task_description=user_request)
     task_context = ""  # scoped to this single task's tool-call trace
+    executed_calls = {}  # (tool_name, sorted args json) -> result, prevents duplicate execution
 
     for iteration in range(MAX_ITERATIONS):
         full_context = session.as_context_string() + "\n" + task_context
@@ -51,6 +60,16 @@ def run_agent(user_request: str, session: Session) -> str:
         elif action == "call_tool":
             tool_name = decision.get("tool_name")
             arguments = decision.get("arguments", {})
+            call_key = (tool_name, json.dumps(arguments, sort_keys=True))
+
+            if call_key in executed_calls:
+                cached_result = executed_calls[call_key]
+                print(f"  → Duplicate call detected for {tool_name} — reusing cached result, not re-executing.")
+                task_context += (
+                    f"\n[System] You already called {tool_name}({arguments}) and got: {cached_result}. "
+                    f"Do NOT call this again — use this result to answer now."
+                )
+                continue
 
             tool = TOOL_INSTANCES.get(tool_name)
 
@@ -60,6 +79,8 @@ def run_agent(user_request: str, session: Session) -> str:
                     result = tool.run(**arguments)
                 except Exception as e:
                     result = {"success": False, "error": f"Tool crashed: {str(e)}"}
+                if result.get("success"):
+                    executed_calls[call_key] = result
             else:
                 # Not hardcoded — try loading it from the registry
                 stored_tool = get_tool_by_name(tool_name)
@@ -96,6 +117,8 @@ def run_agent(user_request: str, session: Session) -> str:
                     result = instance.run(**arguments)
                 except Exception as e:
                     result = {"success": False, "error": f"Forged tool crashed: {str(e)}"}
+                if result.get("success"):
+                    executed_calls[call_key] = result
 
             print(f"  → Result: {result}")
             task_context += f"\n[Tool Call] {tool_name}({arguments}) -> {result}"

@@ -7,6 +7,7 @@ from sandbox.executor import run_in_sandbox
 from .forge_log import log_forge_attempt
 from registry.registry import add_tool
 from critic.critic import review_code
+from registry.vector_store import upsert_tool_embedding
 
 load_dotenv()
 
@@ -186,6 +187,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
                 source="forged",
                 risk_tier=risk_tier,
             )
+            upsert_tool_embedding(tool_name, description)
             result = {
                 "success": True,
                 "generated_code": generated_code,

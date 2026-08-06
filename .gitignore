@@ -5,3 +5,4 @@ __pycache__/
 
 registry/tools.db
 memory/forge_log.jsonl
+scratch/*.txt

@@ -8,3 +8,5 @@ memory/forge_log.jsonl
 scratch/*.txt
 
 memory/audit_log.jsonl
+
+registry/chroma_store/

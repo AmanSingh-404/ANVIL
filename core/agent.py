@@ -6,6 +6,7 @@ from forge.tool_forge import forge_tool
 from registry.registry import list_tools
 import json
 from registry.registry import get_tool_by_name
+from core.approval import request_approval
 
 MAX_ITERATIONS = 5
 
@@ -62,6 +63,16 @@ def run_agent(user_request: str, session: Session) -> str:
                 if not stored_tool:
                     task_context += f"\n[System] Tool '{tool_name}' does not exist."
                     continue
+
+                if stored_tool["risk_tier"] == "side_effecting":
+                    approved = request_approval(
+                        tool_name, arguments, stored_tool["description"]
+                    )
+                    if not approved:
+                        result = {"success": False, "error": "User denied approval for this action."}
+                        print(f"  → Denied by user.")
+                        task_context += f"\n[Tool Call] {tool_name}({arguments}) -> DENIED by user"
+                        continue
 
                 print(f"  → Calling forged tool {tool_name} with {arguments}")
                 try:

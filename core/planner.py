@@ -19,10 +19,12 @@ You must decide ONE of the following:
 - "call_tool": you need to use one of the available tools
 - "no_tool_fits": none of the available tools can accomplish this task
 
-CRITICAL RULE: If the conversation history already shows a successful tool call
-([Tool Call] ... -> {"success": True, ...}) whose output directly answers the
-current request, you MUST choose "answer" using that output — do NOT call the
-same tool again with the same or equivalent arguments.
+CRITICAL RULE: If the conversation history shows a tool call was DENIED by
+the user ("DENIED by user"), you MUST choose "answer" and inform the user
+their request was not completed because they denied approval. Do NOT attempt
+to forge a new tool or find another way to accomplish the same action — a
+denial means the user does not want this action performed right now, not
+that a better tool is needed.
 
 Respond ONLY with valid JSON in exactly this shape, nothing else:
 

@@ -85,12 +85,12 @@ def run_agent(user_request: str, session: Session) -> str:
             forge_result = forge_tool(user_request, reason)
 
             if forge_result.get("success"):
-                print(f"\n  === TOOL FORGED AND VALIDATED ===")
+                print(f"\n  === TOOL FORGED, TESTED, AND CRITIC-APPROVED ===")
                 print(f"  Class: {forge_result.get('class_name')}")
                 print(f"  Attempts: {forge_result.get('attempts')}")
-                print(f"  Test output:\n{forge_result.get('test_output')}")
+                print(f"  Critic verdict: {forge_result.get('critic_verdict')}")
                 print(f"  === END ===\n")
-                return "[FORGE_SUCCESS] Tool validated in sandbox — not yet registered for reuse (Step 4 next)."
+                return "[FORGE_SUCCESS] Tool tested, critic-reviewed, and registered for reuse."
             else:
                 return f"[FORGE_FAILED] Could not create a tool for this task. Reason: {forge_result.get('error')}"
 

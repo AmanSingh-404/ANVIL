@@ -6,6 +6,7 @@ import re
 from sandbox.executor import run_in_sandbox
 from .forge_log import log_forge_attempt
 from registry.registry import add_tool
+from critic.critic import review_code
 
 load_dotenv()
 
@@ -148,6 +149,16 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
         sandbox_result = run_in_sandbox(test_script, timeout=10)
 
         if sandbox_result["success"] and "ALL_PASSED" in sandbox_result["stdout"]:
+            critic_verdict = review_code(generated_code)
+
+            if critic_verdict.get("verdict") != "approve":
+                # Tests passed, but the Critic caught something the tests didn't.
+                last_error = (
+                    f"Critic rejected the code ({critic_verdict.get('verdict')}): "
+                    f"{critic_verdict.get('reason')}"
+                )
+                continue  # retry with this feedback, same as a test failure
+
             tool_name, description, input_schema = _extract_tool_metadata(generated_code, class_name)
 
             add_tool(
@@ -166,6 +177,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
                 "tool_name": tool_name,
                 "test_cases": test_cases,
                 "test_output": sandbox_result["stdout"],
+                "critic_verdict": critic_verdict,
                 "attempts": attempt,
             }
             log_forge_attempt(task_description, reason, result)

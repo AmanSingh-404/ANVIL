@@ -14,6 +14,7 @@ def log_forge_attempt(task_description: str, reason: str, result: dict):
         "class_name": result.get("class_name"),
         "attempts": result.get("attempts"),
         "error": result.get("error"),
+        "critic_verdict": result.get("critic_verdict"),
     }
     os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
     with open(LOG_PATH, "a", encoding="utf-8") as f:

@@ -7,6 +7,8 @@ from registry.registry import list_tools
 import json
 from registry.registry import get_tool_by_name
 from core.approval import request_approval
+from registry.registry import increment_approval_count, mark_auto_approved
+from core.approval import request_approval, offer_graduation
 
 MAX_ITERATIONS = 5
 
@@ -64,7 +66,7 @@ def run_agent(user_request: str, session: Session) -> str:
                     task_context += f"\n[System] Tool '{tool_name}' does not exist."
                     continue
 
-                if stored_tool["risk_tier"] == "side_effecting":
+                if stored_tool["risk_tier"] == "side_effecting" and not stored_tool["auto_approved"]:
                     approved = request_approval(
                         tool_name, arguments, stored_tool["description"]
                     )
@@ -73,6 +75,13 @@ def run_agent(user_request: str, session: Session) -> str:
                         print(f"  → Denied by user.")
                         task_context += f"\n[Tool Call] {tool_name}({arguments}) -> DENIED by user"
                         continue
+
+                    new_count = increment_approval_count(tool_name)
+                    if offer_graduation(tool_name, new_count):
+                        mark_auto_approved(tool_name)
+                        print(f"  → '{tool_name}' will now auto-approve going forward.")
+                elif stored_tool["risk_tier"] == "side_effecting" and stored_tool["auto_approved"]:
+                    print(f"  → '{tool_name}' is auto-approved, skipping prompt.")
 
                 print(f"  → Calling forged tool {tool_name} with {arguments}")
                 try:

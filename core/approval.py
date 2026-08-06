@@ -1,10 +1,7 @@
-def request_approval(tool_name: str, arguments: dict, description: str) -> bool:
-    """
-    Pauses execution and asks the user (via CLI for now) to approve
-    a side-effecting tool call before it runs.
+GRADUATION_THRESHOLD = 3
 
-    Returns True if approved, False if denied.
-    """
+
+def request_approval(tool_name: str, arguments: dict, description: str) -> bool:
     print(f"\n  ⚠ APPROVAL REQUIRED")
     print(f"  Tool: {tool_name}")
     print(f"  Description: {description}")
@@ -18,3 +15,17 @@ def request_approval(tool_name: str, arguments: dict, description: str) -> bool:
             return False
         else:
             print("  Please type 'y' or 'n'.")
+
+
+def offer_graduation(tool_name: str, approval_count: int) -> bool:
+    """
+    After a tool has been manually approved GRADUATION_THRESHOLD times,
+    ask the user if they want to stop being prompted for it going forward.
+    Returns True if the user opts to auto-approve from now on.
+    """
+    if approval_count < GRADUATION_THRESHOLD:
+        return False
+
+    print(f"\n  You've approved '{tool_name}' {approval_count} times.")
+    response = input(f"  Auto-approve this tool from now on? (y/n): ").strip().lower()
+    return response in ("y", "yes")

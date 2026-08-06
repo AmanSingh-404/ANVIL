@@ -51,3 +51,18 @@ def record_tool_outcome(name: str, succeeded: bool):
         conn.execute("UPDATE tools SET failure_count = failure_count + 1 WHERE name = ?", (name,))
     conn.commit()
     conn.close()
+
+def increment_approval_count(name: str) -> int:
+    conn = get_connection()
+    conn.execute("UPDATE tools SET approval_count = approval_count + 1 WHERE name = ?", (name,))
+    conn.commit()
+    row = conn.execute("SELECT approval_count FROM tools WHERE name = ?", (name,)).fetchone()
+    conn.close()
+    return row["approval_count"] if row else 0
+
+
+def mark_auto_approved(name: str):
+    conn = get_connection()
+    conn.execute("UPDATE tools SET auto_approved = 1 WHERE name = ?", (name,))
+    conn.commit()
+    conn.close()

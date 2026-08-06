@@ -3,13 +3,13 @@ from registry.db import get_connection
 
 
 def add_tool(name: str, description: str, input_schema: dict, code: str,
-             class_name: str, source: str = "forged") -> int:
+             class_name: str, source: str = "forged", risk_tier: str = "side_effecting") -> int:
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO tools (name, description, input_schema, code, class_name, source)
-        VALUES (?, ?, ?, ?, ?, ?)
-    """, (name, description, json.dumps(input_schema), code, class_name, source))
+        INSERT INTO tools (name, description, input_schema, code, class_name, source, risk_tier)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (name, description, json.dumps(input_schema), code, class_name, source, risk_tier))
     conn.commit()
     new_id = cursor.lastrowid
     conn.close()

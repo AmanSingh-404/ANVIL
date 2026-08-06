@@ -23,6 +23,10 @@ Specifically look for:
 6. Any subprocess, os.system, or shell command execution
 7. Anything that looks deliberately obfuscated or unusually complex for the
    tool's stated purpose
+8. Whether the tool's declared risk_tier is ACCURATE. If it claims "read_only"
+   but actually writes, deletes, sends, or modifies anything outside its return
+   value, this is a serious finding — reject it, since a misclassified tool
+   could bypass human approval it should require.
 
 Be an ADVERSARIAL reviewer — assume the code might be trying to hide something,
 even if it looks innocent. But do not reject code just for being simple or for

@@ -89,6 +89,7 @@ def run_agent(user_request: str, session: Session) -> str:
                 print(f"  Class: {forge_result.get('class_name')}")
                 print(f"  Attempts: {forge_result.get('attempts')}")
                 print(f"  Critic verdict: {forge_result.get('critic_verdict')}")
+                print(f"  Risk tier: {forge_result.get('risk_tier')}")
                 print(f"  === END ===\n")
                 return "[FORGE_SUCCESS] Tool tested, critic-reviewed, and registered for reuse."
             else:

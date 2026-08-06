@@ -18,12 +18,15 @@ Your job: write a single, self-contained Python tool that fills a capability gap
 
 STRICT REQUIREMENTS:
 1. The tool must be a class that subclasses `Tool` from `core.tool_base`.
-2. It must define: name (str), description (str), input_schema (dict), and a run(self, **kwargs) method.
-3. run() must return a dict shaped like {"success": True, "output": ...} or {"success": False, "error": "..."}.
-4. Only use Python standard library — no external packages, no network access, no file access outside a "scratch/" directory.
-5. Wrap risky operations in try/except and return a clean error dict instead of raising.
-6. Do NOT include the `from core.tool_base import Tool` import line yourself — it will be added automatically.
-7. Output ONLY the Python class code. No explanation, no markdown fences, no extra text.
+2. It must define: name (str), description (str), input_schema (dict), risk_tier (str), and a run(self, **kwargs) method.
+3. risk_tier must be either "read_only" (the tool only reads/computes, never writes files, sends anything,
+   deletes anything, or has any external effect) or "side_effecting" (the tool writes, deletes, sends,
+   or otherwise changes state outside its own return value). If genuinely unsure, use "side_effecting" — safer default.
+4. run() must return a dict shaped like {"success": True, "output": ...} or {"success": False, "error": "..."}.
+5. Only use Python standard library — no external packages, no network access, no file access outside a "scratch/" directory.
+6. Wrap risky operations in try/except and return a clean error dict instead of raising.
+7. Do NOT include the `from core.tool_base import Tool` import line yourself — it will be added automatically.
+8. Output ONLY the Python class code. No explanation, no markdown fences, no extra text.
 
 Example shape:
 
@@ -31,6 +34,7 @@ class ExampleTool(Tool):
     name = "example_tool"
     description = "Does something specific."
     input_schema = {"some_input": {"type": "string", "description": "..."}}
+    risk_tier = "read_only"
 
     def run(self, **kwargs) -> dict:
         try:
@@ -78,17 +82,29 @@ IMPORTANT: A previous attempt failed. Here is what went wrong — fix this speci
 
 TEST_GEN_SYSTEM_PROMPT = """You are a test-writer for AI-generated tools.
 
-Given a Tool class's code, write 2-3 simple test cases as a Python list of dicts.
+Given a Tool class's code, write 2-3 test cases as a Python list of dicts.
 Each dict must have:
 - "input": a dict of kwargs to pass to run()
 - "expect_success": True or False (whether you expect this call to succeed)
+
+IMPORTANT rules for choosing expect_success:
+- A normal, valid, well-formed input should expect_success: True
+- An EMPTY REQUIRED STRING (e.g. filename="", or any field that represents a
+  required name/path/identifier) is usually INVALID input and should expect
+  the tool to either fail gracefully OR handle it with a sensible default —
+  do not assume it succeeds unless the tool's purpose clearly treats empty
+  string as meaningful (e.g. a text-formatting tool where empty text is valid).
+- Missing optional keys should test whatever the tool's own kwargs.get()
+  defaults imply.
+- At least one test case should cover a genuinely normal, realistic input.
+- Do not invent edge cases that don't make sense for the tool's actual purpose.
 
 Output ONLY a valid Python list literal, nothing else. No markdown, no explanation.
 
 Example output:
 [
     {"input": {"text": "hello"}, "expect_success": True},
-    {"input": {}, "expect_success": True}
+    {"input": {"text": ""}, "expect_success": True}
 ]
 """
 
@@ -159,7 +175,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
                 )
                 continue  # retry with this feedback, same as a test failure
 
-            tool_name, description, input_schema = _extract_tool_metadata(generated_code, class_name)
+            tool_name, description, input_schema, risk_tier = _extract_tool_metadata(generated_code, class_name)
 
             add_tool(
                 name=tool_name,
@@ -168,13 +184,14 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
                 code=generated_code,
                 class_name=class_name,
                 source="forged",
+                risk_tier=risk_tier,
             )
-
             result = {
                 "success": True,
                 "generated_code": generated_code,
                 "class_name": class_name,
                 "tool_name": tool_name,
+                "risk_tier": risk_tier,
                 "test_cases": test_cases,
                 "test_output": sandbox_result["stdout"],
                 "critic_verdict": critic_verdict,
@@ -186,6 +203,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
             last_error = (
                 f"Tests failed.\nstdout: {sandbox_result['stdout']}\nstderr: {sandbox_result['stderr']}"
             )
+            
             # Loop continues — retry with a fresh generation attempt
 
     # Only reached if the loop finishes without ever returning above —
@@ -208,7 +226,10 @@ def _extract_tool_metadata(tool_code: str, class_name: str):
     exec_globals = {"Tool": __import__("core.tool_base", fromlist=["Tool"]).Tool}
     exec(tool_code, exec_globals, namespace)
     tool_class = namespace[class_name]
-    return tool_class.name, tool_class.description, tool_class.input_schema
+    risk_tier = getattr(tool_class, "risk_tier", "side_effecting")  # fail-safe default
+    if risk_tier not in ("read_only", "side_effecting"):
+        risk_tier = "side_effecting"  # guard against a malformed/unexpected value
+    return tool_class.name, tool_class.description, tool_class.input_schema, risk_tier
 
 def _extract_class_name(tool_code: str) -> str:
     match = re.search(r"class\s+(\w+)\s*\(\s*Tool\s*\)", tool_code)

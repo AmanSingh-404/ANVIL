@@ -55,6 +55,12 @@ def query_relevant_lessons(task_description: str, top_k: int = 3) -> list:
     )
     return results["documents"][0] if results["documents"] else []
 
+MAX_LESSONS = 200
+
+
+def lesson_count() -> int:
+    collection = _get_lessons_collection()
+    return collection.count()
 
 def embed_text(text: str) -> list:
     model = _get_model()

@@ -59,12 +59,13 @@ Is there a genuinely useful lesson here worth remembering?"""
         return {"has_lesson": False, "error": str(e)}
 
 def reflect_and_store(user_request: str, task_trace: str, final_result: str):
-    """
-    Runs reflection on a completed task, and if a genuine lesson was found,
-    persists it for future retrieval.
-    """
+    from registry.vector_store import lesson_count, MAX_LESSONS
+
     reflection = reflect_on_task(user_request, task_trace, final_result)
     if reflection.get("has_lesson"):
+        if lesson_count() >= MAX_LESSONS:
+            print(f"  [reflection] Lesson learned but memory cap ({MAX_LESSONS}) reached — not stored. (Future work: consolidation/pruning.)")
+            return reflection
         lesson_text = reflection["lesson"]
         lesson_id = str(uuid.uuid4())
         store_lesson(lesson_id, lesson_text)

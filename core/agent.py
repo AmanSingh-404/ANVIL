@@ -13,6 +13,7 @@ from core.audit_log import log_approval_event
 from registry.vector_store import query_relevant_tools
 from memory.reflection import reflect_and_store
 from registry.vector_store import query_relevant_lessons
+from registry.registry import record_tool_outcome
 
 MAX_ITERATIONS = 5
 
@@ -123,6 +124,8 @@ def run_agent(user_request: str, session: Session) -> str:
                     result = instance.run(**arguments)
                 except Exception as e:
                     result = {"success": False, "error": f"Forged tool crashed: {str(e)}"}
+
+                record_tool_outcome(tool_name, succeeded=result.get("success", False))
                 if result.get("success"):
                     executed_calls[call_key] = result
 

@@ -2,6 +2,8 @@ import os
 import json
 from groq import Groq
 from dotenv import load_dotenv
+import uuid
+from registry.vector_store import store_lesson, query_relevant_lessons
 
 load_dotenv()
 
@@ -55,3 +57,16 @@ Is there a genuinely useful lesson here worth remembering?"""
 
     except (json.JSONDecodeError, Exception) as e:
         return {"has_lesson": False, "error": str(e)}
+
+def reflect_and_store(user_request: str, task_trace: str, final_result: str):
+    """
+    Runs reflection on a completed task, and if a genuine lesson was found,
+    persists it for future retrieval.
+    """
+    reflection = reflect_on_task(user_request, task_trace, final_result)
+    if reflection.get("has_lesson"):
+        lesson_text = reflection["lesson"]
+        lesson_id = str(uuid.uuid4())
+        store_lesson(lesson_id, lesson_text)
+        print(f"  [reflection] Learned: {lesson_text}")
+    return reflection

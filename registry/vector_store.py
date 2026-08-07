@@ -13,12 +13,47 @@ def _get_model():
     return _model
 
 
+_lessons_collection = None
+
+
 def _get_collection():
     global _client, _collection
     if _collection is None:
         _client = chromadb.PersistentClient(path="registry/chroma_store")
         _collection = _client.get_or_create_collection(name="tools")
     return _collection
+
+
+def _get_lessons_collection():
+    global _client, _lessons_collection
+    if _lessons_collection is None:
+        if _client is None:
+            _client = chromadb.PersistentClient(path="registry/chroma_store")
+        _lessons_collection = _client.get_or_create_collection(name="lessons")
+    return _lessons_collection
+
+
+def store_lesson(lesson_id: str, lesson_text: str):
+    collection = _get_lessons_collection()
+    embedding = embed_text(lesson_text)
+    collection.upsert(
+        ids=[lesson_id],
+        embeddings=[embedding],
+        documents=[lesson_text],
+    )
+
+
+def query_relevant_lessons(task_description: str, top_k: int = 3) -> list:
+    collection = _get_lessons_collection()
+    if collection.count() == 0:
+        return []
+
+    query_embedding = embed_text(task_description)
+    results = collection.query(
+        query_embeddings=[query_embedding],
+        n_results=min(top_k, collection.count()),
+    )
+    return results["documents"][0] if results["documents"] else []
 
 
 def embed_text(text: str) -> list:

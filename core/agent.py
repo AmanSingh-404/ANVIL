@@ -11,6 +11,8 @@ from registry.registry import increment_approval_count, mark_auto_approved
 from core.approval import request_approval, offer_graduation
 from core.audit_log import log_approval_event
 from registry.vector_store import query_relevant_tools
+from memory.reflection import reflect_and_store
+from registry.vector_store import query_relevant_lessons
 
 MAX_ITERATIONS = 5
 
@@ -48,14 +50,18 @@ def run_agent(user_request: str, session: Session) -> str:
     executed_calls = {}  # (tool_name, sorted args json) -> result, prevents duplicate execution
 
     for iteration in range(MAX_ITERATIONS):
-        full_context = session.as_context_string() + "\n" + task_context
+        relevant_lessons = query_relevant_lessons(user_request)
+        lessons_text = "\n".join(f"[Lesson] {l}" for l in relevant_lessons) if relevant_lessons else ""
+        full_context = session.as_context_string() + "\n" + task_context + "\n" + lessons_text
         decision = plan(user_request, tools_available, full_context)
         action = decision.get("action")
 
         print(f"\n[Iteration {iteration + 1}] Planner decided: {action}")
 
         if action == "answer":
-            return decision.get("content", "")
+            final_answer = decision.get("content", "")
+            reflect_and_store(user_request, task_context, final_answer)
+            return final_answer
 
         elif action == "call_tool":
             tool_name = decision.get("tool_name")

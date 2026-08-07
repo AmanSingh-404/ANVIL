@@ -66,3 +66,25 @@ def mark_auto_approved(name: str):
     conn.execute("UPDATE tools SET auto_approved = 1 WHERE name = ?", (name,))
     conn.commit()
     conn.close()
+
+FAILURE_RATE_THRESHOLD = 0.5  # if 50%+ of calls fail
+MIN_CALLS_BEFORE_CHECK = 3    # don't judge a tool on 1-2 calls, too noisy
+
+
+def needs_reforge(name: str) -> bool:
+    conn = get_connection()
+    row = conn.execute(
+        "SELECT success_count, failure_count FROM tools WHERE name = ? AND status = 'approved'",
+        (name,)
+    ).fetchone()
+    conn.close()
+
+    if not row:
+        return False
+
+    total = row["success_count"] + row["failure_count"]
+    if total < MIN_CALLS_BEFORE_CHECK:
+        return False
+
+    failure_rate = row["failure_count"] / total
+    return failure_rate >= FAILURE_RATE_THRESHOLD

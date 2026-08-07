@@ -88,3 +88,30 @@ def needs_reforge(name: str) -> bool:
 
     failure_rate = row["failure_count"] / total
     return failure_rate >= FAILURE_RATE_THRESHOLD
+
+def add_new_version(name: str, description: str, input_schema: dict, code: str,
+                     class_name: str, risk_tier: str, source: str = "forged") -> int:
+    """
+    Deprecates the current approved version of `name` and inserts a new one
+    with an incremented version number. Old versions are kept (status='deprecated'),
+    never deleted — so history is preserved for the report/demo.
+    """
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    old = cursor.execute(
+        "SELECT version FROM tools WHERE name = ? AND status = 'approved'", (name,)
+    ).fetchone()
+    new_version = (old["version"] + 1) if old else 1
+
+    cursor.execute("UPDATE tools SET status = 'deprecated' WHERE name = ? AND status = 'approved'", (name,))
+
+    cursor.execute("""
+        INSERT INTO tools (name, description, input_schema, code, class_name, source, risk_tier, version)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (name, description, json.dumps(input_schema), code, class_name, source, risk_tier, new_version))
+
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    return new_id

@@ -14,6 +14,8 @@ from registry.vector_store import query_relevant_tools
 from memory.reflection import reflect_and_store
 from registry.vector_store import query_relevant_lessons
 from registry.registry import record_tool_outcome
+from registry.registry import needs_reforge
+from forge.tool_forge import reforge_tool
 
 MAX_ITERATIONS = 5
 
@@ -128,6 +130,13 @@ def run_agent(user_request: str, session: Session) -> str:
                 record_tool_outcome(tool_name, succeeded=result.get("success", False))
                 if result.get("success"):
                     executed_calls[call_key] = result
+                elif needs_reforge(tool_name):
+                    print(f"  → '{tool_name}' has crossed the failure threshold — attempting re-forge...")
+                    reforge_result = reforge_tool(tool_name)
+                    if reforge_result.get("success"):
+                        print(f"  → Re-forged '{tool_name}' to v{reforge_result.get('attempts')} — will be used next time it's called.")
+                    else:
+                        print(f"  → Re-forge attempt failed: {reforge_result.get('error')}")
 
             print(f"  → Result: {result}")
             task_context += f"\n[Tool Call] {tool_name}({arguments}) -> {result}"

@@ -8,6 +8,7 @@ from .forge_log import log_forge_attempt
 from registry.registry import add_tool
 from critic.critic import review_code
 from registry.vector_store import upsert_tool_embedding
+from registry.registry import add_new_version, get_tool_by_name
 
 load_dotenv()
 
@@ -267,3 +268,41 @@ for i, case in enumerate(test_cases):
 print("ALL_PASSED" if all_passed else "SOME_FAILED")
 '''
     return test_script
+
+
+
+def reforge_tool(tool_name: str) -> dict:
+    """
+    Re-forges an existing tool that has crossed the failure threshold,
+    using its original description as the task and its real failure
+    history as context for what to fix.
+    """
+    existing = get_tool_by_name(tool_name)
+    if not existing:
+        return {"success": False, "error": f"Tool '{tool_name}' not found for re-forging."}
+
+    task_description = existing["description"]
+    reason = (
+        f"This tool (v{existing['version']}) has a high real-world failure rate "
+        f"({existing['failure_count']} failures out of "
+        f"{existing['success_count'] + existing['failure_count']} calls) and needs improvement."
+    )
+
+    result = forge_tool(task_description, reason)
+
+    if result.get("success"):
+        tool_name_new, description, input_schema, risk_tier = _extract_tool_metadata(
+            result["generated_code"], result["class_name"]
+        )
+        add_new_version(
+            name=tool_name,  # keep the SAME name so it's a version bump, not a new tool
+            description=description,
+            input_schema=input_schema,
+            code=result["generated_code"],
+            class_name=result["class_name"],
+            risk_tier=risk_tier,
+        )
+        upsert_tool_embedding(tool_name, description)
+        result["reforged_from_version"] = existing["version"]
+
+    return result

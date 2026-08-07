@@ -142,7 +142,7 @@ Write 2-3 test cases for it."""
     except (ValueError, SyntaxError):
         return []  # if parsing fails, we'll treat it as "no tests generated" downstream
 
-def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dict:
+def forge_tool(task_description: str, reason: str, max_attempts: int = 2, auto_register: bool = True) -> dict:
     """
     Given a task the agent couldn't accomplish with existing tools,
     generates a new tool, tests it in the sandbox, and reports the outcome.
@@ -179,16 +179,17 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2) -> dic
 
             tool_name, description, input_schema, risk_tier = _extract_tool_metadata(generated_code, class_name)
 
-            add_tool(
-                name=tool_name,
-                description=description,
-                input_schema=input_schema,
-                code=generated_code,
-                class_name=class_name,
-                source="forged",
-                risk_tier=risk_tier,
-            )
-            upsert_tool_embedding(tool_name, description)
+            if auto_register:
+                add_tool(
+                    name=tool_name,
+                    description=description,
+                    input_schema=input_schema,
+                    code=generated_code,
+                    class_name=class_name,
+                    source="forged",
+                    risk_tier=risk_tier,
+                )
+                upsert_tool_embedding(tool_name, description)
             result = {
                 "success": True,
                 "generated_code": generated_code,
@@ -288,7 +289,7 @@ def reforge_tool(tool_name: str) -> dict:
         f"{existing['success_count'] + existing['failure_count']} calls) and needs improvement."
     )
 
-    result = forge_tool(task_description, reason)
+    result = forge_tool(task_description, reason, auto_register=False)
 
     if result.get("success"):
         tool_name_new, description, input_schema, risk_tier = _extract_tool_metadata(

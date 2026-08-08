@@ -69,5 +69,29 @@ def approval_resolve():
 def get_history():
     return jsonify({"history": task_history})
 
+@app.route("/api/cost-summary", methods=["GET"])
+def cost_summary():
+    summary = []
+    grand_total = 0
+
+    for task in task_history:
+        task_tokens = 0
+        forged_this_task = False
+
+        for step in task.get("trace", []):
+            tk = step.get("tokens", {})
+            task_tokens += tk.get("prompt_tokens", 0) + tk.get("completion_tokens", 0)
+            if step.get("type") == "forge_attempt":
+                forged_this_task = True
+
+        grand_total += task_tokens
+        summary.append({
+            "request": task["request"],
+            "tokens": task_tokens,
+            "forged": forged_this_task,
+        })
+
+    return jsonify({"tasks": summary, "grand_total": grand_total})
+
 if __name__ == "__main__":
     app.run(port=5000, debug=True, threaded=True)

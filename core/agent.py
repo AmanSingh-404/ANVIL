@@ -155,8 +155,13 @@ def run_agent(user_request: str, session: Session, approval_fn=None, trace: list
             print(f"  → Attempting to forge a new tool...")
 
             forge_result = forge_tool(user_request, reason)
-            trace.append({"type": "forge_attempt", "success": forge_result.get("success"), "tool_name": forge_result.get("tool_name"), "critic_verdict": forge_result.get("critic_verdict")})
-
+            trace.append({
+                "type": "forge_attempt",
+                "success": forge_result.get("success"),
+                "tool_name": forge_result.get("tool_name"),
+                "critic_verdict": forge_result.get("critic_verdict"),
+                "tokens": forge_result.get("token_usage", {}),
+            })
             if forge_result.get("success"):
                 print(f"\n  === TOOL FORGED, TESTED, AND CRITIC-APPROVED ===")
                 print(f"  Class: {forge_result.get('class_name')}")

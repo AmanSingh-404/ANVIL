@@ -4,6 +4,9 @@ from core.agent import run_agent
 from core.session import Session
 from registry.registry import list_tools
 from core.approval import request_approval_web, get_pending_approval, resolve_pending_approval
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from groq import RateLimitError
 task_history = []  # every completed task's request + response + full trace, for the replay view
 
 app = Flask(__name__)
@@ -22,8 +25,23 @@ def get_or_create_session(session_id: str):
         session_histories[session_id] = []
     return sessions[session_id], session_histories[session_id]
 
+CORS(app)  # allow requests from the Next.js dev server (localhost:3000)
+
+def get_session_id():
+    # Rate-limit per session, not per IP — multiple legitimate users could
+    # share an IP (same office/college network), but each has their own session.
+    return request.headers.get("X-Session-Id", get_remote_address())
+
+limiter = Limiter(
+    app=app,
+    key_func=get_session_id,
+    default_limits=["60 per hour"],  # generous overall ceiling
+    storage_uri="memory://",  # fine for a single-process demo deployment
+)
+
 
 @app.route("/api/chat", methods=["POST"])
+@limiter.limit("15 per minute")
 def chat():
     data = request.get_json()
     user_message = data.get("message", "")
@@ -37,7 +55,13 @@ def chat():
     user_session, history = get_or_create_session(session_id)
 
     trace = []
-    response = run_agent(user_message, user_session, approval_fn=request_approval_web(session_id), trace=trace)
+    try:
+        response = run_agent(user_message, user_session, approval_fn=request_approval_web(session_id), trace=trace)
+    except RateLimitError:
+        return jsonify({"error": "ANVIL's LLM provider is temporarily rate-limited. Please try again in a few minutes."}), 503
+    except Exception as e:
+        return jsonify({"error": f"Unexpected error: {str(e)}"}), 500
+
     history.append({"request": user_message, "response": response, "trace": trace})
     return jsonify({"response": response, "trace": trace})
 

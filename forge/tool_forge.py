@@ -71,15 +71,15 @@ IMPORTANT: A previous attempt failed. Here is what went wrong — fix this speci
     )
 
     raw = response.choices[0].message.content.strip()
+    usage = {"prompt_tokens": response.usage.prompt_tokens, "completion_tokens": response.usage.completion_tokens}
 
-    # Strip markdown fences if present despite instructions
     if raw.startswith("```"):
         raw = raw.strip("`")
         if raw.startswith("python"):
             raw = raw[6:]
         raw = raw.strip()
 
-    return raw
+    return raw, usage
 
 
 TEST_GEN_SYSTEM_PROMPT = """You are a test-writer for AI-generated tools.
@@ -135,12 +135,13 @@ Write 2-3 test cases for it."""
             raw = raw[6:]
         raw = raw.strip()
 
+    usage = {"prompt_tokens": response.usage.prompt_tokens, "completion_tokens": response.usage.completion_tokens}
     try:
         import ast
         test_cases = ast.literal_eval(raw)
-        return test_cases
+        return test_cases, usage
     except (ValueError, SyntaxError):
-        return []  # if parsing fails, we'll treat it as "no tests generated" downstream
+        return [], usage
 
 def forge_tool(task_description: str, reason: str, max_attempts: int = 2, auto_register: bool = True) -> dict:
     """
@@ -149,16 +150,23 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2, auto_r
     Registration (Phase 4) comes next — for now we just validate.
     """
     last_error = None
+    total_tokens = {"prompt_tokens": 0, "completion_tokens": 0}
+
+    def _accumulate(usage):
+        total_tokens["prompt_tokens"] += usage.get("prompt_tokens", 0)
+        total_tokens["completion_tokens"] += usage.get("completion_tokens", 0)
 
     for attempt in range(1, max_attempts + 1):
-        generated_code = generate_tool_code(task_description, reason, prior_failure=last_error)
+        generated_code, codegen_usage = generate_tool_code(task_description, reason, prior_failure=last_error)
+        _accumulate(codegen_usage)
         class_name = _extract_class_name(generated_code)
 
         if not class_name:
             last_error = "Could not find a valid Tool subclass in generated code."
             continue
 
-        test_cases = generate_test_cases(generated_code)
+        test_cases, testgen_usage = generate_test_cases(generated_code)
+        _accumulate(testgen_usage)
         if not test_cases:
             last_error = "Could not generate valid test cases."
             continue
@@ -168,6 +176,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2, auto_r
 
         if sandbox_result["success"] and "ALL_PASSED" in sandbox_result["stdout"]:
             critic_verdict = review_code(generated_code)
+            _accumulate(critic_verdict.get("_usage", {}))
 
             if critic_verdict.get("verdict") != "approve":
                 # Tests passed, but the Critic caught something the tests didn't.
@@ -200,6 +209,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2, auto_r
                 "test_output": sandbox_result["stdout"],
                 "critic_verdict": critic_verdict,
                 "attempts": attempt,
+                "token_usage": dict(total_tokens),
             }
             log_forge_attempt(task_description, reason, result)
             return result
@@ -215,6 +225,7 @@ def forge_tool(task_description: str, reason: str, max_attempts: int = 2, auto_r
     final_result = {
         "success": False,
         "error": f"Failed after {max_attempts} attempts. Last error: {last_error}",
+        "token_usage": dict(total_tokens),
     }
     log_forge_attempt(task_description, reason, final_result)
     return final_result

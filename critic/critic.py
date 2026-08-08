@@ -58,6 +58,7 @@ Give your verdict."""
             temperature=0,
         )
         raw = response.choices[0].message.content.strip()
+        usage = {"prompt_tokens": response.usage.prompt_tokens, "completion_tokens": response.usage.completion_tokens}
 
         if raw.startswith("```"):
             raw = raw.strip("`")
@@ -65,7 +66,9 @@ Give your verdict."""
                 raw = raw[4:]
             raw = raw.strip()
 
-        return json.loads(raw)
+        result = json.loads(raw)
+        result["_usage"] = usage
+        return result
 
     except json.JSONDecodeError:
         return {"verdict": "needs_human_review", "reason": f"Critic returned invalid JSON: {raw}"}

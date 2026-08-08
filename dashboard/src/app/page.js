@@ -83,7 +83,7 @@ export default function LandingPage() {
 
       <section className="stack reveal" id="stack">
         <div className="stack-head">
-          <div className="stack-label">// the stack</div>
+          <div className="stack-label">the stack</div>
           <h2>Build your perfect loop. Generate adds capability, Validate adds trust, Govern adds control.</h2>
         </div>
         <div className="stack-grid">
@@ -144,7 +144,7 @@ export default function LandingPage() {
       </section>
 
       <div className="stages-intro reveal">
-        <div className="stack-label">// how it forges</div>
+        <div className="stack-label"> how it forges</div>
         <div className="squeeze">
           <span className="s1">Plan</span><span className="s2">Forge</span><span className="s3">Sandbox</span><span className="s4">Critic</span><span className="s5">Keep</span>
         </div>
@@ -161,7 +161,7 @@ export default function LandingPage() {
 
       <section className="demo reveal" id="demo">
         <div className="demo-head">
-          <div className="stack-label">// see it forge</div>
+          <div className="stack-label"> see it forge</div>
           <h2 style={{ fontSize: 'clamp(1.8rem, 3.4vw, 2.6rem)', fontWeight: 700, letterSpacing: '-0.02em' }}>A capability gap, closed live.</h2>
         </div>
         <div className="terminal">

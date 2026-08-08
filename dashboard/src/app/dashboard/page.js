@@ -170,114 +170,597 @@ export default function DashboardPage() {
 }
 
 const styles = {
+  // ============================================
+  // MAIN APP
+  // ============================================
+
+  layout: {
+    display: 'flex',
+    width: '100%',
+    height: '100vh',
+    minHeight: 0,
+    overflow: 'hidden',
+    background: 'var(--bg)',
+    boxSizing: 'border-box',
+  },
+
+  // ============================================
+  // CHAT SIDE
+  // ============================================
+
   page: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    height: '100%',
     display: 'flex',
     flexDirection: 'column',
-    width: '100vw',
-    height: '100vh',
     overflow: 'hidden',
     boxSizing: 'border-box',
-    fontFamily: 'var(--font-space-grotesk), sans-serif', background: 'var(--bg)',
-  },
-  header: {
-    display: 'flex', alignItems: 'center', gap: '10px',
-    padding: '20px 6vw', borderBottom: '1px solid var(--border)',
-  },
-  h1: { fontSize: '1.3rem', fontWeight: 700 },
-  statusDot: { width: '8px', height: '8px', borderRadius: '50%', background: '#4CAF50' },
-  chatWindow: {
-    flex: 1, overflowY: 'auto', padding: '24px 6vw', display: 'flex', flexDirection: 'column', gap: '16px',
-  },
-  empty: { color: 'var(--muted)', fontSize: '0.95rem', margin: 'auto' },
-  userMsg: {
-    alignSelf: 'flex-end', maxWidth: '70%', background: 'var(--brand)', color: '#fff',
-    padding: '12px 16px', borderRadius: '10px 10px 2px 10px', fontSize: '0.92rem',
-  },
-  agentMsg: {
-    alignSelf: 'flex-start', maxWidth: '70%', background: 'var(--bg-panel)', border: '1px solid var(--border)',
-    padding: '12px 16px', borderRadius: '10px 10px 10px 2px', fontSize: '0.92rem', whiteSpace: 'pre-wrap',
-  },
-  errorMsg: {
-    alignSelf: 'flex-start', maxWidth: '70%', background: '#FDECEC', border: '1px solid #F5B5B5', color: '#9C2B2B',
-    padding: '12px 16px', borderRadius: '10px', fontSize: '0.92rem',
-  },
-  msgRole: {
-    display: 'block', fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.68rem',
-    opacity: 0.6, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em',
-  },
-  thinking: { color: 'var(--muted)', fontStyle: 'italic' },
-  inputRow: {
-    display: 'flex', gap: '10px', padding: '16px 6vw', borderTop: '1px solid var(--border)', background: 'var(--bg-panel)',
-  },
-  textarea: {
-    flex: 1, padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border-strong)',
-    fontFamily: 'var(--font-space-grotesk), sans-serif', fontSize: '0.92rem', resize: 'none',
-  },
-  sendBtn: {
-    fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.85rem', fontWeight: 600,
-    background: 'var(--brand)', color: '#fff', padding: '0 22px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-  },
- layout: {
-  display: 'flex',
-  flex: 1,
-  width: '100%',
-  minWidth: 0,
-  minHeight: 0,
-  overflow: 'hidden',
-},
-  registryPanel: {
-    width: '300px', flexShrink: 0, borderLeft: '1px solid var(--border)',
-    background: 'var(--bg-panel)', display: 'flex', flexDirection: 'column',
     fontFamily: 'var(--font-space-grotesk), sans-serif',
+    background: 'var(--bg)',
   },
-  registryHeader: {
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '20px 20px 14px', borderBottom: '1px solid var(--border)',
+
+  // ============================================
+  // HEADER
+  // ============================================
+
+  header: {
+    height: '64px',
+    minHeight: '64px',
+    flexShrink: 0,
+
+    display: 'flex',
+    alignItems: 'center',
+
+    padding: '0 28px',
+
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--bg)',
+
+    boxSizing: 'border-box',
   },
-  registryTitle: { fontWeight: 700, fontSize: '0.95rem' },
-  registryCount: {
-    fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.75rem',
-    background: 'var(--brand-tint)', color: 'var(--brand-dark)', padding: '2px 9px', borderRadius: '100px',
+
+  h1: {
+    margin: 0,
+    fontSize: '1.05rem',
+    fontWeight: 700,
+    letterSpacing: '-0.02em',
   },
-  registryList: { flex: 1, overflowY: 'auto', padding: '14px' },
-  registryEmpty: { color: 'var(--muted)', fontSize: '0.85rem', padding: '10px 4px' },
-  toolCard: {
-    border: '1px solid var(--border)', borderRadius: '8px', padding: '12px 14px', marginBottom: '10px',
+
+  statusDot: {
+    width: '7px',
+    height: '7px',
+    marginLeft: '4px',
+    borderRadius: '50%',
+    background: '#4CAF50',
+    boxShadow: '0 0 0 3px rgba(76, 175, 80, 0.12)',
   },
-  toolName: { fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.82rem', fontWeight: 600 },
-  toolVersion: { color: 'var(--muted-2)', fontWeight: 400 },
-  toolMeta: { display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' },
-  badgeSafe: {
-    fontSize: '0.68rem', fontFamily: 'var(--font-plex-mono), monospace', background: '#E8F5E9', color: '#2E7D32',
-    padding: '2px 8px', borderRadius: '100px',
+
+  // ============================================
+  // CHAT WINDOW
+  // ============================================
+
+  chatWindow: {
+    flex: 1,
+    minHeight: 0,
+
+    overflowY: 'auto',
+    overflowX: 'hidden',
+
+    display: 'flex',
+    flexDirection: 'column',
+
+    gap: '18px',
+
+    padding: '28px 32px',
+
+    boxSizing: 'border-box',
+
+    scrollbarWidth: 'thin',
   },
-  badgeRisk: {
-    fontSize: '0.68rem', fontFamily: 'var(--font-plex-mono), monospace', background: '#FFF3E0', color: '#B35C00',
-    padding: '2px 8px', borderRadius: '100px',
+
+  empty: {
+    color: 'var(--muted)',
+    fontSize: '0.9rem',
+    lineHeight: 1.6,
+
+    margin: 'auto',
+
+    textAlign: 'center',
+
+    maxWidth: '520px',
   },
-  badgeAuto: {
-    fontSize: '0.68rem', fontFamily: 'var(--font-plex-mono), monospace', background: 'var(--brand-tint)', color: 'var(--brand-dark)',
-    padding: '2px 8px', borderRadius: '100px',
+
+  // ============================================
+  // USER MESSAGE
+  // ============================================
+
+  userMsg: {
+    alignSelf: 'flex-end',
+
+    width: 'fit-content',
+    maxWidth: '65%',
+
+    background: 'var(--brand)',
+    color: '#fff',
+
+    padding: '11px 15px',
+
+    borderRadius: '10px 10px 3px 10px',
+
+    fontSize: '0.88rem',
+    lineHeight: 1.5,
+
+    boxSizing: 'border-box',
+
+    boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
   },
-  toolStats: { display: 'flex', gap: '10px', marginTop: '8px', fontSize: '0.75rem', fontFamily: 'var(--font-plex-mono), monospace' },
-  statOk: { color: '#2E7D32' },
-  statFail: { color: '#C23101' },
-  
+
+  // ============================================
+  // ANVIL MESSAGE
+  // ============================================
+
+  agentMsg: {
+    alignSelf: 'flex-start',
+
+    width: 'fit-content',
+    maxWidth: '65%',
+
+    background: 'var(--bg-panel)',
+
+    border: '1px solid var(--border)',
+
+    padding: '11px 15px',
+
+    borderRadius: '10px 10px 10px 3px',
+
+    fontSize: '0.88rem',
+    lineHeight: 1.5,
+
+    whiteSpace: 'pre-wrap',
+
+    boxSizing: 'border-box',
+  },
+
+  // ============================================
+  // ERROR
+  // ============================================
+
+  errorMsg: {
+    alignSelf: 'flex-start',
+
+    width: 'fit-content',
+    maxWidth: '65%',
+
+    background: '#FDECEC',
+
+    border: '1px solid #F5B5B5',
+
+    color: '#9C2B2B',
+
+    padding: '11px 15px',
+
+    borderRadius: '10px',
+
+    fontSize: '0.88rem',
+    lineHeight: 1.5,
+
+    boxSizing: 'border-box',
+  },
+
+  // ============================================
+  // MESSAGE ROLE
+  // ============================================
+
+  msgRole: {
+    display: 'block',
+
+    marginBottom: '4px',
+
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.62rem',
+
+    fontWeight: 500,
+
+    opacity: 0.55,
+
+    textTransform: 'uppercase',
+
+    letterSpacing: '0.06em',
+  },
+
+  thinking: {
+    color: 'var(--muted)',
+    fontStyle: 'italic',
+  },
+
+  // ============================================
+  // APPROVAL CARD
+  // ============================================
+
   approvalCard: {
-    margin: '0 6vw 16px', padding: '16px 18px', borderRadius: '10px',
-    background: '#FFF8F0', border: '1px solid #F4C089',
+    flexShrink: 0,
+
+    margin: '0 32px 12px',
+
+    padding: '15px 17px',
+
+    borderRadius: '9px',
+
+    background: '#FFF8F0',
+
+    border: '1px solid #F4C089',
+
+    boxSizing: 'border-box',
   },
-  approvalHeader: { fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.8rem', fontWeight: 600, color: '#B35C00', marginBottom: '8px' },
-  approvalTool: { fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.9rem', fontWeight: 600 },
-  approvalDesc: { fontSize: '0.85rem', color: 'var(--muted)', marginTop: '4px' },
-  approvalArgs: { fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.75rem', color: 'var(--muted)', marginTop: '6px' },
-  approvalBtns: { display: 'flex', gap: '10px', marginTop: '12px' },
+
+  approvalHeader: {
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.72rem',
+
+    fontWeight: 600,
+
+    color: '#B35C00',
+
+    marginBottom: '7px',
+  },
+
+  approvalTool: {
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.84rem',
+
+    fontWeight: 600,
+  },
+
+  approvalDesc: {
+    fontSize: '0.82rem',
+
+    color: 'var(--muted)',
+
+    marginTop: '4px',
+
+    lineHeight: 1.5,
+  },
+
+  approvalArgs: {
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.7rem',
+
+    color: 'var(--muted)',
+
+    marginTop: '7px',
+
+    overflowX: 'auto',
+  },
+
+  approvalBtns: {
+    display: 'flex',
+
+    gap: '8px',
+
+    marginTop: '12px',
+  },
+
   approveBtn: {
-    fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.82rem', fontWeight: 600,
-    background: '#2E7D32', color: '#fff', padding: '8px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.75rem',
+
+    fontWeight: 600,
+
+    background: '#2E7D32',
+
+    color: '#fff',
+
+    padding: '7px 16px',
+
+    borderRadius: '6px',
+
+    border: 'none',
+
+    cursor: 'pointer',
   },
+
   denyBtn: {
-    fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.82rem', fontWeight: 600,
-    background: '#C23101', color: '#fff', padding: '8px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.75rem',
+
+    fontWeight: 600,
+
+    background: '#C23101',
+
+    color: '#fff',
+
+    padding: '7px 16px',
+
+    borderRadius: '6px',
+
+    border: 'none',
+
+    cursor: 'pointer',
+  },
+
+  // ============================================
+  // INPUT AREA
+  // ============================================
+
+  inputRow: {
+    flexShrink: 0,
+
+    display: 'flex',
+
+    alignItems: 'center',
+
+    gap: '10px',
+
+    padding: '14px 32px',
+
+    borderTop: '1px solid var(--border)',
+
+    background: 'var(--bg-panel)',
+
+    boxSizing: 'border-box',
+  },
+
+  textarea: {
+    flex: 1,
+
+    minWidth: 0,
+
+    height: '40px',
+
+    padding: '10px 13px',
+
+    borderRadius: '7px',
+
+    border: '1px solid var(--border-strong)',
+
+    outline: 'none',
+
+    background: 'var(--bg)',
+
+    color: 'var(--text)',
+
+    fontFamily: 'var(--font-space-grotesk), sans-serif',
+
+    fontSize: '0.85rem',
+
+    lineHeight: 1.4,
+
+    resize: 'none',
+
+    boxSizing: 'border-box',
+  },
+
+  sendBtn: {
+    flexShrink: 0,
+
+    height: '40px',
+
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.75rem',
+
+    fontWeight: 600,
+
+    background: 'var(--brand)',
+
+    color: '#fff',
+
+    padding: '0 20px',
+
+    borderRadius: '7px',
+
+    border: 'none',
+
+    cursor: 'pointer',
+  },
+
+  // ============================================
+  // TOOL REGISTRY
+  // ============================================
+
+  registryPanel: {
+    width: '310px',
+    minWidth: '310px',
+
+    height: '100%',
+
+    flexShrink: 0,
+
+    display: 'flex',
+
+    flexDirection: 'column',
+
+    overflow: 'hidden',
+
+    borderLeft: '1px solid var(--border)',
+
+    background: 'var(--bg-panel)',
+
+    fontFamily: 'var(--font-space-grotesk), sans-serif',
+
+    boxSizing: 'border-box',
+  },
+
+  registryHeader: {
+    height: '64px',
+    minHeight: '64px',
+
+    flexShrink: 0,
+
+    display: 'flex',
+
+    justifyContent: 'space-between',
+
+    alignItems: 'center',
+
+    padding: '0 18px',
+
+    borderBottom: '1px solid var(--border)',
+
+    boxSizing: 'border-box',
+  },
+
+  registryTitle: {
+    fontWeight: 700,
+
+    fontSize: '0.88rem',
+
+    letterSpacing: '-0.01em',
+  },
+
+  registryCount: {
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.68rem',
+
+    background: 'var(--brand-tint)',
+
+    color: 'var(--brand-dark)',
+
+    padding: '3px 8px',
+
+    borderRadius: '100px',
+  },
+
+  registryList: {
+    flex: 1,
+
+    minHeight: 0,
+
+    overflowY: 'auto',
+
+    overflowX: 'hidden',
+
+    padding: '12px',
+
+    boxSizing: 'border-box',
+
+    scrollbarWidth: 'thin',
+  },
+
+  registryEmpty: {
+    color: 'var(--muted)',
+
+    fontSize: '0.8rem',
+
+    padding: '10px 4px',
+  },
+
+  // ============================================
+  // TOOL CARD
+  // ============================================
+
+  toolCard: {
+    border: '1px solid var(--border)',
+
+    borderRadius: '8px',
+
+    padding: '11px 12px',
+
+    marginBottom: '8px',
+
+    background: 'var(--bg)',
+
+    transition: 'border-color 0.15s ease',
+  },
+
+  toolName: {
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    fontSize: '0.76rem',
+
+    fontWeight: 600,
+
+    lineHeight: 1.4,
+
+    wordBreak: 'break-word',
+  },
+
+  toolVersion: {
+    color: 'var(--muted-2)',
+
+    fontWeight: 400,
+  },
+
+  toolMeta: {
+    display: 'flex',
+
+    alignItems: 'center',
+
+    gap: '5px',
+
+    marginTop: '7px',
+
+    flexWrap: 'wrap',
+  },
+
+  badgeSafe: {
+    fontSize: '0.62rem',
+
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    background: '#E8F5E9',
+
+    color: '#2E7D32',
+
+    padding: '2px 7px',
+
+    borderRadius: '100px',
+  },
+
+  badgeRisk: {
+    fontSize: '0.62rem',
+
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    background: '#FFF3E0',
+
+    color: '#B35C00',
+
+    padding: '2px 7px',
+
+    borderRadius: '100px',
+  },
+
+  badgeAuto: {
+    fontSize: '0.62rem',
+
+    fontFamily: 'var(--font-plex-mono), monospace',
+
+    background: 'var(--brand-tint)',
+
+    color: 'var(--brand-dark)',
+
+    padding: '2px 7px',
+
+    borderRadius: '100px',
+  },
+
+  toolStats: {
+    display: 'flex',
+
+    gap: '9px',
+
+    marginTop: '7px',
+
+    fontSize: '0.67rem',
+
+    fontFamily: 'var(--font-plex-mono), monospace',
+  },
+
+  statOk: {
+    color: '#2E7D32',
+  },
+
+  statFail: {
+    color: '#C23101',
   },
 };

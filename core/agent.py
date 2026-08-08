@@ -6,9 +6,8 @@ from forge.tool_forge import forge_tool
 from registry.registry import list_tools
 import json
 from registry.registry import get_tool_by_name
-from core.approval import request_approval
 from registry.registry import increment_approval_count, mark_auto_approved
-from core.approval import request_approval, offer_graduation
+from core.approval import request_approval_cli, offer_graduation
 from core.audit_log import log_approval_event
 from registry.vector_store import query_relevant_tools
 from memory.reflection import reflect_and_store
@@ -47,7 +46,9 @@ def get_tool_descriptions(task_description: str = None, top_k: int = 5) -> list:
 
 
 
-def run_agent(user_request: str, session: Session) -> str:
+def run_agent(user_request: str, session: Session, approval_fn=None) -> str:
+    if approval_fn is None:
+        approval_fn = request_approval_cli
     tools_available = get_tool_descriptions(task_description=user_request)
     task_context = ""  # scoped to this single task's tool-call trace
     executed_calls = {}  # (tool_name, sorted args json) -> result, prevents duplicate execution
@@ -97,7 +98,7 @@ def run_agent(user_request: str, session: Session) -> str:
                     task_context += f"\n[System] Tool '{tool_name}' does not exist."
                     continue
                 if stored_tool["risk_tier"] == "side_effecting" and not stored_tool["auto_approved"]:
-                    approved = request_approval(
+                    approved = approval_fn(
                         tool_name, arguments, stored_tool["description"]
                     )
                     if not approved:

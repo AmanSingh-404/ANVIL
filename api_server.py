@@ -3,6 +3,7 @@ from flask_cors import CORS
 from core.agent import run_agent
 from core.session import Session
 from registry.registry import list_tools
+from core.approval import request_approval_web, get_pending_approval, resolve_pending_approval
 
 app = Flask(__name__)
 CORS(app)  # allow requests from the Next.js dev server (localhost:3000)
@@ -20,7 +21,7 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    response = run_agent(user_message, session)
+    response = run_agent(user_message, session, approval_fn=request_approval_web)
     return jsonify({"response": response})
 
 
@@ -48,5 +49,18 @@ def get_tools():
     ]
     return jsonify({"tools": summary})
 
+@app.route("/api/approval/pending", methods=["GET"])
+def approval_pending():
+    pending = get_pending_approval()
+    return jsonify({"pending": pending})
+
+
+@app.route("/api/approval/resolve", methods=["POST"])
+def approval_resolve():
+    data = request.get_json()
+    decision = bool(data.get("approved", False))
+    resolved = resolve_pending_approval(decision)
+    return jsonify({"resolved": resolved})
+
 if __name__ == "__main__":
-    app.run(port=5000, debug=True)
+    app.run(port=5000, debug=True, threaded=True)

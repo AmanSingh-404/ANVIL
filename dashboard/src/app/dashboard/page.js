@@ -12,9 +12,20 @@ export default function DashboardPage() {
   const [history, setHistory] = useState([]);
   const [selectedTrace, setSelectedTrace] = useState(null);
 
+  const [sessionId, setSessionId] = useState(null);
+
+  useEffect(() => {
+    let id = localStorage.getItem('anvil_session_id');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('anvil_session_id', id);
+    }
+    setSessionId(id);
+}, [sessionId]);
+
   const fetchTools = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/tools');
+      const res = await fetch('http://localhost:5000/api/tools', { headers: { 'X-Session-Id': sessionId } });
       const data = await res.json();
       setTools(data.tools || []);
     } catch (err) {
@@ -24,28 +35,29 @@ export default function DashboardPage() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/history');
+      const res = await fetch('http://localhost:5000/api/history', { headers: { 'X-Session-Id': sessionId } });
       const data = await res.json();
       setHistory(data.history || []);
     } catch (err) {
       console.error('Failed to fetch history:', err);
     }
-  }, []);
+}, [sessionId]);
 
   const pollApproval = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/approval/pending');
+      const res = await fetch('http://localhost:5000/api/approval/pending', { headers: { 'X-Session-Id': sessionId } });
       const data = await res.json();
       setPendingApproval(data.pending || null);
     } catch (err) {
       console.error('Failed to poll approval:', err);
     }
-  }, []);
+}, [sessionId]);
 
 useEffect(() => {
+    if (!sessionId) return;
     fetchTools();
     fetchHistory();
-  }, [fetchTools, fetchHistory]);
+  }, [sessionId, fetchTools, fetchHistory]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -63,6 +75,7 @@ useEffect(() => {
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
+    if (!text || loading || !sessionId) return;
 
     setMessages((prev) => [...prev, { role: 'user', content: text }]);
     setInput('');
@@ -71,7 +84,7 @@ useEffect(() => {
     try {
       const res = await fetch('http://localhost:5000/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
         body: JSON.stringify({ message: text }),
       });
       const data = await res.json();
@@ -94,7 +107,7 @@ useEffect(() => {
     try {
       await fetch('http://localhost:5000/api/approval/resolve', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
         body: JSON.stringify({ approved }),
       });
       setPendingApproval(null);

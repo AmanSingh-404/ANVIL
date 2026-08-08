@@ -28,46 +28,45 @@ def offer_graduation(tool_name: str, approval_count: int) -> bool:
     return response in ("y", "yes")
 
 
-# ---------- Web approval (used by api_server.py, no terminal available) ----------
-# Single global pending slot — matches the existing "one session per server run" simplification.
+# ---------- Web approval (per-session, multi-user safe) ----------
 
-_pending = {
-    "active": False, "tool_name": None, "arguments": None,
-    "description": None, "event": None, "decision": None,
-}
+_pending_by_session = {}  # session_id -> {"active", "tool_name", "arguments", "description", "event", "decision"}
 
 
-def request_approval_web(tool_name: str, arguments: dict, description: str) -> bool:
+def request_approval_web(session_id: str):
     """
-    Registers a pending approval the dashboard can see via polling, then
-    blocks THIS REQUEST THREAD ONLY on a threading.Event until /api/approve
-    resolves it. Requires Flask running with threaded=True so other routes
-    (the poll and the approve endpoint) can still be served concurrently.
+    Returns an approval_fn bound to this session_id, so core.agent's
+    generic approval_fn(tool_name, arguments, description) signature
+    stays unchanged while each session gets its own isolated pending slot.
     """
-    event = threading.Event()
-    _pending.update({
-        "active": True, "tool_name": tool_name, "arguments": arguments,
-        "description": description, "event": event, "decision": None,
-    })
-    event.wait()
-    decision = _pending["decision"]
-    _pending["active"] = False
-    return decision
+    def _approve(tool_name: str, arguments: dict, description: str) -> bool:
+        event = threading.Event()
+        _pending_by_session[session_id] = {
+            "active": True, "tool_name": tool_name, "arguments": arguments,
+            "description": description, "event": event, "decision": None,
+        }
+        event.wait()
+        decision = _pending_by_session[session_id]["decision"]
+        _pending_by_session[session_id]["active"] = False
+        return decision
+    return _approve
 
 
-def get_pending_approval():
-    if not _pending["active"]:
+def get_pending_approval(session_id: str):
+    entry = _pending_by_session.get(session_id)
+    if not entry or not entry["active"]:
         return None
     return {
-        "tool_name": _pending["tool_name"],
-        "arguments": _pending["arguments"],
-        "description": _pending["description"],
+        "tool_name": entry["tool_name"],
+        "arguments": entry["arguments"],
+        "description": entry["description"],
     }
 
 
-def resolve_pending_approval(decision: bool) -> bool:
-    if not _pending["active"] or _pending["event"] is None:
+def resolve_pending_approval(session_id: str, decision: bool) -> bool:
+    entry = _pending_by_session.get(session_id)
+    if not entry or not entry["active"] or entry["event"] is None:
         return False
-    _pending["decision"] = decision
-    _pending["event"].set()
+    entry["decision"] = decision
+    entry["event"].set()
     return True

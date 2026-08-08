@@ -9,6 +9,8 @@ export default function DashboardPage() {
   const bottomRef = useRef(null);
   const [tools, setTools] = useState([]);
   const [pendingApproval, setPendingApproval] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [selectedTrace, setSelectedTrace] = useState(null);
 
   const fetchTools = useCallback(async () => {
     try {
@@ -17,6 +19,16 @@ export default function DashboardPage() {
       setTools(data.tools || []);
     } catch (err) {
       console.error('Failed to fetch tools:', err);
+    }
+  }, []);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/history');
+      const data = await res.json();
+      setHistory(data.history || []);
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
     }
   }, []);
 
@@ -30,9 +42,10 @@ export default function DashboardPage() {
     }
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     fetchTools();
-  }, [fetchTools]);
+    fetchHistory();
+  }, [fetchTools, fetchHistory]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -68,6 +81,7 @@ export default function DashboardPage() {
       } else {
         setMessages((prev) => [...prev, { role: 'agent', content: data.response }]);
         fetchTools(); // a new tool may have just been forged — refresh the registry panel
+        fetchHistory();
       }
     } catch (err) {
       setMessages((prev) => [...prev, { role: 'error', content: `Could not reach ANVIL backend: ${err.message}` }]);
@@ -95,6 +109,14 @@ export default function DashboardPage() {
       sendMessage();
     }
   }
+
+  const totalTokens = history.reduce((sum, task) => {
+    const taskTokens = (task.trace || []).reduce((s, t) => {
+      const tk = t.tokens || {};
+      return s + (tk.prompt_tokens || 0) + (tk.completion_tokens || 0);
+    }, 0);
+    return sum + taskTokens;
+  }, 0);
 
   return (
     <div style={styles.layout}>
@@ -161,6 +183,37 @@ export default function DashboardPage() {
                 <span style={styles.statOk}>{t.success_count} ok</span>
                 <span style={styles.statFail}>{t.failure_count} fail</span>
               </div>
+            </div>
+          ))}
+        </div>
+      </aside>
+      <aside style={styles.historyPanel}>
+        <div style={styles.registryHeader}>
+          <span style={styles.registryTitle}>Task History</span>
+          <span style={styles.registryCount}>{totalTokens} tok</span>
+        </div>
+        <div style={styles.registryList}>
+          {history.length === 0 && <div style={styles.registryEmpty}>No tasks yet.</div>}
+          {history.map((task, i) => (
+            <div
+              key={i}
+              style={{ ...styles.historyCard, ...(selectedTrace === i ? styles.historyCardActive : {}) }}
+              onClick={() => setSelectedTrace(selectedTrace === i ? null : i)}
+            >
+              <div style={styles.historyReq}>{task.request}</div>
+              {selectedTrace === i && (
+                <div style={styles.traceList}>
+                  {(task.trace || []).map((step, j) => (
+                    <div key={j} style={styles.traceStep}>
+                      <span style={styles.traceType}>{step.type}</span>
+                      {step.type === 'plan' && <span> → {step.action} ({(step.tokens?.prompt_tokens || 0) + (step.tokens?.completion_tokens || 0)} tok)</span>}
+                      {step.type === 'tool_call' && <span> {step.tool} → {step.result?.success ? 'ok' : 'failed'}</span>}
+                      {step.type === 'forge_attempt' && <span> {step.tool_name || '?'} → {step.success ? 'success' : 'failed'}</span>}
+                      {step.type === 'duplicate_skipped' && <span> {step.tool} (reused cache)</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -763,4 +816,21 @@ const styles = {
   statFail: {
     color: '#C23101',
   },
+  historyPanel: {
+    width: '280px', flexShrink: 0, borderLeft: '1px solid var(--border)',
+    background: 'var(--bg-panel)', display: 'flex', flexDirection: 'column',
+    fontFamily: 'var(--font-space-grotesk), sans-serif',
+  },
+  historyCard: {
+    border: '1px solid var(--border)', borderRadius: '8px', padding: '10px 12px', marginBottom: '8px',
+    cursor: 'pointer', fontSize: '0.82rem', transition: 'background 0.15s',
+  },
+  historyCardActive: { background: 'var(--brand-tint)', borderColor: 'var(--brand)' },
+  historyReq: { fontWeight: 600 },
+  traceList: { marginTop: '8px', paddingTop: '8px', borderTop: '1px solid var(--border)' },
+  traceStep: {
+    fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.72rem', color: 'var(--muted)',
+    padding: '3px 0',
+  },
+  traceType: { color: 'var(--brand-dark)', fontWeight: 600 },
 };

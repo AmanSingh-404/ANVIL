@@ -4,6 +4,7 @@ from core.agent import run_agent
 from core.session import Session
 from registry.registry import list_tools
 from core.approval import request_approval_web, get_pending_approval, resolve_pending_approval
+task_history = []  # every completed task's request + response + full trace, for the replay view
 
 app = Flask(__name__)
 CORS(app)  # allow requests from the Next.js dev server (localhost:3000)
@@ -21,8 +22,10 @@ def chat():
     if not user_message:
         return jsonify({"error": "No message provided"}), 400
 
-    response = run_agent(user_message, session, approval_fn=request_approval_web)
-    return jsonify({"response": response})
+    trace = []
+    response = run_agent(user_message, session, approval_fn=request_approval_web, trace=trace)
+    task_history.append({"request": user_message, "response": response, "trace": trace})
+    return jsonify({"response": response, "trace": trace})
 
 
 @app.route("/api/health", methods=["GET"])
@@ -61,6 +64,10 @@ def approval_resolve():
     decision = bool(data.get("approved", False))
     resolved = resolve_pending_approval(decision)
     return jsonify({"resolved": resolved})
+
+@app.route("/api/history", methods=["GET"])
+def get_history():
+    return jsonify({"history": task_history})
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True, threaded=True)

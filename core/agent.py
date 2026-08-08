@@ -46,9 +46,11 @@ def get_tool_descriptions(task_description: str = None, top_k: int = 5) -> list:
 
 
 
-def run_agent(user_request: str, session: Session, approval_fn=None) -> str:
+def run_agent(user_request: str, session: Session, approval_fn=None, trace: list = None) -> str:
     if approval_fn is None:
         approval_fn = request_approval_cli
+    if trace is None:
+        trace = []
     tools_available = get_tool_descriptions(task_description=user_request)
     task_context = ""  # scoped to this single task's tool-call trace
     executed_calls = {}  # (tool_name, sorted args json) -> result, prevents duplicate execution
@@ -59,6 +61,8 @@ def run_agent(user_request: str, session: Session, approval_fn=None) -> str:
         full_context = session.as_context_string() + "\n" + task_context + "\n" + lessons_text
         decision = plan(user_request, tools_available, full_context)
         action = decision.get("action")
+        usage = decision.get("_usage", {})
+        trace.append({"type": "plan", "iteration": iteration + 1, "action": action, "tokens": usage})
 
         print(f"\n[Iteration {iteration + 1}] Planner decided: {action}")
 
@@ -75,6 +79,7 @@ def run_agent(user_request: str, session: Session, approval_fn=None) -> str:
             if call_key in executed_calls:
                 cached_result = executed_calls[call_key]
                 print(f"  → Duplicate call detected for {tool_name} — reusing cached result, not re-executing.")
+                trace.append({"type": "duplicate_skipped", "tool": tool_name, "arguments": arguments})
                 task_context += (
                     f"\n[System] You already called {tool_name}({arguments}) and got: {cached_result}. "
                     f"Do NOT call this again — use this result to answer now."
@@ -91,6 +96,7 @@ def run_agent(user_request: str, session: Session, approval_fn=None) -> str:
                     result = {"success": False, "error": f"Tool crashed: {str(e)}"}
                 if result.get("success"):
                     executed_calls[call_key] = result
+                trace.append({"type": "tool_call", "tool": tool_name, "arguments": arguments, "result": result, "source": "hardcoded"})
             else:
                 # Not hardcoded — try loading it from the registry
                 stored_tool = get_tool_by_name(tool_name)
@@ -132,6 +138,7 @@ def run_agent(user_request: str, session: Session, approval_fn=None) -> str:
                 if result.get("success"):
                     executed_calls[call_key] = result
                 elif needs_reforge(tool_name):
+                    trace.append({"type": "tool_call", "tool": tool_name, "arguments": arguments, "result": result, "source": "forged"})
                     print(f"  → '{tool_name}' has crossed the failure threshold — attempting re-forge...")
                     reforge_result = reforge_tool(tool_name)
                     if reforge_result.get("success"):
@@ -148,6 +155,7 @@ def run_agent(user_request: str, session: Session, approval_fn=None) -> str:
             print(f"  → Attempting to forge a new tool...")
 
             forge_result = forge_tool(user_request, reason)
+            trace.append({"type": "forge_attempt", "success": forge_result.get("success"), "tool_name": forge_result.get("tool_name"), "critic_verdict": forge_result.get("critic_verdict")})
 
             if forge_result.get("success"):
                 print(f"\n  === TOOL FORGED, TESTED, AND CRITIC-APPROVED ===")

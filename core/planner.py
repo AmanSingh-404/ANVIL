@@ -62,6 +62,7 @@ Decide your next action. Respond with JSON only."""
             temperature=0,
         )
         raw = response.choices[0].message.content.strip()
+        usage = response.usage
     except Exception as e:
         return {"action": "no_tool_fits", "reason": f"Planner API call failed: {str(e)}"}
 
@@ -73,6 +74,8 @@ Decide your next action. Respond with JSON only."""
         raw = raw.strip()
 
     try:
-        return json.loads(raw)
+        result = json.loads(raw)
     except json.JSONDecodeError:
-        return {"action": "no_tool_fits", "reason": f"Planner returned invalid JSON: {raw}"}
+        result = {"action": "no_tool_fits", "reason": f"Planner returned invalid JSON: {raw}"}
+    result["_usage"] = {"prompt_tokens": usage.prompt_tokens, "completion_tokens": usage.completion_tokens}
+    return result

@@ -8,6 +8,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
   const [tools, setTools] = useState([]);
+  const [pendingApproval, setPendingApproval] = useState(null);
 
   const fetchTools = useCallback(async () => {
     try {
@@ -19,6 +20,16 @@ export default function DashboardPage() {
     }
   }, []);
 
+  const pollApproval = useCallback(async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/approval/pending');
+      const data = await res.json();
+      setPendingApproval(data.pending || null);
+    } catch (err) {
+      console.error('Failed to poll approval:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchTools();
   }, [fetchTools]);
@@ -26,6 +37,15 @@ export default function DashboardPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (!loading) {
+      setPendingApproval(null);
+      return;
+    }
+    const interval = setInterval(pollApproval, 700);
+    return () => clearInterval(interval);
+  }, [loading, pollApproval]);
 
   async function sendMessage() {
     const text = input.trim();
@@ -53,6 +73,19 @@ export default function DashboardPage() {
       setMessages((prev) => [...prev, { role: 'error', content: `Could not reach ANVIL backend: ${err.message}` }]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function resolveApproval(approved) {
+    try {
+      await fetch('http://localhost:5000/api/approval/resolve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approved }),
+      });
+      setPendingApproval(null);
+    } catch (err) {
+      console.error('Failed to resolve approval:', err);
     }
   }
 
@@ -84,6 +117,18 @@ export default function DashboardPage() {
           {loading && <div style={styles.agentMsg}><span style={styles.msgRole}>ANVIL</span><div style={styles.thinking}>thinking...</div></div>}
           <div ref={bottomRef} />
         </div>
+        {pendingApproval && (
+          <div style={styles.approvalCard}>
+            <div style={styles.approvalHeader}>⚠ Approval required</div>
+            <div style={styles.approvalTool}>{pendingApproval.tool_name}</div>
+            <div style={styles.approvalDesc}>{pendingApproval.description}</div>
+            <div style={styles.approvalArgs}>{JSON.stringify(pendingApproval.arguments)}</div>
+            <div style={styles.approvalBtns}>
+              <button style={styles.approveBtn} onClick={() => resolveApproval(true)}>Approve</button>
+              <button style={styles.denyBtn} onClick={() => resolveApproval(false)}>Deny</button>
+            </div>
+          </div>
+        )}
 
         <div style={styles.inputRow}>
           <textarea
@@ -218,4 +263,21 @@ const styles = {
   statOk: { color: '#2E7D32' },
   statFail: { color: '#C23101' },
   
+  approvalCard: {
+    margin: '0 6vw 16px', padding: '16px 18px', borderRadius: '10px',
+    background: '#FFF8F0', border: '1px solid #F4C089',
+  },
+  approvalHeader: { fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.8rem', fontWeight: 600, color: '#B35C00', marginBottom: '8px' },
+  approvalTool: { fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.9rem', fontWeight: 600 },
+  approvalDesc: { fontSize: '0.85rem', color: 'var(--muted)', marginTop: '4px' },
+  approvalArgs: { fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.75rem', color: 'var(--muted)', marginTop: '6px' },
+  approvalBtns: { display: 'flex', gap: '10px', marginTop: '12px' },
+  approveBtn: {
+    fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.82rem', fontWeight: 600,
+    background: '#2E7D32', color: '#fff', padding: '8px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+  },
+  denyBtn: {
+    fontFamily: 'var(--font-plex-mono), monospace', fontSize: '0.82rem', fontWeight: 600,
+    background: '#C23101', color: '#fff', padding: '8px 18px', borderRadius: '6px', border: 'none', cursor: 'pointer',
+  },
 };

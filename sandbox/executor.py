@@ -5,8 +5,12 @@ import tempfile
 import psutil
 import time
 
-DEFAULT_TIMEOUT_SECONDS = 5
-DEFAULT_MEMORY_LIMIT_MB = 100
+import os
+
+# Public-deployment-safe defaults — tighter than local dev defaults, since
+# untrusted strangers (not just you) can trigger Tool Forge on a shared server.
+DEFAULT_TIMEOUT_SECONDS = int(os.getenv("ANVIL_SANDBOX_TIMEOUT", "3"))
+DEFAULT_MEMORY_LIMIT_MB = int(os.getenv("ANVIL_SANDBOX_MEMORY_MB", "60"))
 
 
 def _total_memory_mb(ps_proc: psutil.Process) -> float:

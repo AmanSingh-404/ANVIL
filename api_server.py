@@ -6,6 +6,7 @@ from registry.registry import list_tools
 from core.approval import request_approval_web, get_pending_approval, resolve_pending_approval
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+import os
 from groq import RateLimitError
 task_history = []  # every completed task's request + response + full trace, for the replay view
 
@@ -147,4 +148,11 @@ def cost_summary():
     return jsonify({"tasks": summary, "grand_total": grand_total})
 
 if __name__ == "__main__":
-    app.run(port=5000, debug=True, threaded=True)
+    env = os.getenv("ANVIL_ENV", "development")
+
+    if env == "production":
+        from waitress import serve
+        print("Starting ANVIL API in production mode (waitress)...")
+        serve(app, host="0.0.0.0", port=int(os.getenv("PORT", 5000)), threads=8)
+    else:
+        app.run(port=5000, debug=True, threaded=True)

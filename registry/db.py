@@ -1,7 +1,8 @@
 import sqlite3
 import os
 
-DB_PATH = os.path.join("registry", "tools.db")
+DATA_DIR = os.getenv("ANVIL_DATA_DIR", "registry")
+DB_PATH = os.path.join(DATA_DIR, "tools.db")
 
 
 def get_connection():

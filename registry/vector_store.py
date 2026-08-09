@@ -1,5 +1,6 @@
 import chromadb
 from sentence_transformers import SentenceTransformer
+import os
 
 _model = None
 _client = None
@@ -19,7 +20,7 @@ _lessons_collection = None
 def _get_collection():
     global _client, _collection
     if _collection is None:
-        _client = chromadb.PersistentClient(path="registry/chroma_store")
+        _client = chromadb.PersistentClient(path=os.path.join(os.getenv("ANVIL_DATA_DIR", "registry"), "chroma_store"))
         _collection = _client.get_or_create_collection(name="tools")
     return _collection
 

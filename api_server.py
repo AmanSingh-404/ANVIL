@@ -11,7 +11,11 @@ from groq import RateLimitError
 task_history = []  # every completed task's request + response + full trace, for the replay view
 
 app = Flask(__name__)
-CORS(app)  # allow requests from the Next.js dev server (localhost:3000)
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # local dev
+    os.getenv("ANVIL_FRONTEND_URL", ""),  # production frontend, set once deployed
+]
+CORS(app, origins=[o for o in ALLOWED_ORIGINS if o])
 
 import uuid
 
@@ -26,7 +30,6 @@ def get_or_create_session(session_id: str):
         session_histories[session_id] = []
     return sessions[session_id], session_histories[session_id]
 
-CORS(app)  # allow requests from the Next.js dev server (localhost:3000)
 
 def get_session_id():
     # Rate-limit per session, not per IP — multiple legitimate users could

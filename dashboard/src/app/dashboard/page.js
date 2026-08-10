@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
 export default function DashboardPage() {
   const [messages, setMessages] = useState([]);
@@ -25,7 +26,7 @@ export default function DashboardPage() {
 
   const fetchTools = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/tools', { headers: { 'X-Session-Id': sessionId } });
+      const res = await fetch(`${API_URL}/api/tools`, { headers: { 'X-Session-Id': sessionId } });
       const data = await res.json();
       setTools(data.tools || []);
     } catch (err) {
@@ -35,7 +36,7 @@ export default function DashboardPage() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/history', { headers: { 'X-Session-Id': sessionId } });
+      const res = await fetch(`${API_URL}/api/history`, { headers: { 'X-Session-Id': sessionId } });
       const data = await res.json();
       setHistory(data.history || []);
     } catch (err) {
@@ -45,7 +46,7 @@ export default function DashboardPage() {
 
   const pollApproval = useCallback(async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/approval/pending', { headers: { 'X-Session-Id': sessionId } });
+      const res = await fetch(`${API_URL}/api/approval/pending`, { headers: { 'X-Session-Id': sessionId } });
       const data = await res.json();
       setPendingApproval(data.pending || null);
     } catch (err) {
@@ -82,7 +83,7 @@ useEffect(() => {
     setLoading(true);
 
     try {
-      const res = await fetch('http://localhost:5000/api/chat', {
+      const res = await fetch(`${API_URL}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
         body: JSON.stringify({ message: text }),
@@ -105,7 +106,7 @@ useEffect(() => {
 
   async function resolveApproval(approved) {
     try {
-      await fetch('http://localhost:5000/api/approval/resolve', {
+      await fetch(`${API_URL}/api/approval/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Session-Id': sessionId },
         body: JSON.stringify({ approved }),

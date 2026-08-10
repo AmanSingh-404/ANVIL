@@ -6,6 +6,7 @@ DB_PATH = os.path.join(DATA_DIR, "tools.db")
 
 
 def get_connection():
+    os.makedirs(DATA_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row  # lets us access columns by name
     return conn

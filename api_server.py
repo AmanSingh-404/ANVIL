@@ -8,6 +8,9 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 from groq import RateLimitError
+from registry.db import init_db
+from registry.migrate_add_risk_tier import migrate as migrate_risk_tier
+from registry.migrate_add_approval_tracking import migrate as migrate_approval_tracking
 task_history = []  # every completed task's request + response + full trace, for the replay view
 
 app = Flask(__name__)
@@ -151,6 +154,12 @@ def cost_summary():
     return jsonify({"tasks": summary, "grand_total": grand_total})
 
 if __name__ == "__main__":
+    # Ensure schema exists and is up to date on every startup — critical for a
+    # fresh production volume that's never had these run against it before.
+    init_db()
+    migrate_risk_tier()
+    migrate_approval_tracking()
+
     env = os.getenv("ANVIL_ENV", "development")
 
     if env == "production":

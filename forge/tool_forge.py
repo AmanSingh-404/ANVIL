@@ -62,7 +62,7 @@ IMPORTANT: A previous attempt failed. Here is what went wrong — fix this speci
 {prior_failure}"""
 
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="openai/gpt-oss-20b",
         messages=[
             {"role": "system", "content": CODEGEN_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},
@@ -119,7 +119,7 @@ def generate_test_cases(tool_code: str) -> list:
 Write 2-3 test cases for it."""
 
     response = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="openai/gpt-oss-20b",
         messages=[
             {"role": "system", "content": TEST_GEN_SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt},

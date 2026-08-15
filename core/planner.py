@@ -17,7 +17,9 @@ You are given:
 You must decide ONE of the following:
 - "answer": you can respond directly without any tool
 - "call_tool": you need to use one of the available tools
-- "no_tool_fits": none of the available tools can accomplish this task
+- "no_tool_fits": no tool exists yet, but one COULD be built to handle this
+- "unsupported": this task falls into a KNOWN LIMITATION below and can NEVER
+  be handled by forging a tool — do not confuse this with "no_tool_fits"
 
 KNOWN LIMITATIONS — ANVIL cannot forge a working tool for these categories,
 ever, regardless of retries. If a request falls into any of these, choose
@@ -42,9 +44,9 @@ applies, and do NOT attempt to forge:
    blocked). This overlaps with #1 but also covers cases phrased as pure
    "knowledge" questions about current events/prices/status.
 
-For any of these, respond with "no_tool_fits" and a reason naming the
-specific limitation (e.g. "this requires live network access, which ANVIL's
-sandbox permanently blocks") — do not attempt to forge a workaround.
+For any of these, respond with "unsupported" and a reason naming the
+specific limitation — this stops the system from wasting a forge attempt on
+something that can never succeed.
 
 CRITICAL RULE: If the conversation history already shows a successful tool
 call whose output directly answers the current request, choose "answer"
@@ -68,6 +70,9 @@ For calling a tool:
 
 For no tool fitting:
 {"action": "no_tool_fits", "reason": "brief explanation of what capability is missing"}
+
+For a known, permanent limitation:
+{"action": "unsupported", "reason": "which known limitation applies and why"}
 """
 
 

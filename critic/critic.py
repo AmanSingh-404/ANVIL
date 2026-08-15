@@ -27,6 +27,12 @@ Specifically look for:
    but actually writes, deletes, sends, or modifies anything outside its return
    value, this is a serious finding — reject it, since a misclassified tool
    could bypass human approval it should require.
+9. FABRICATED "LIVE" DATA: if the tool's purpose implies real-time or current
+   information (exchange rates, weather, prices, live status) but the code
+   returns a hardcoded/static value instead of actually fetching it, REJECT
+   it — a tool that silently fabricates data and presents it as current is
+   more dangerous than one that fails honestly, since users cannot tell it's
+   wrong.
 
 Be an ADVERSARIAL reviewer — assume the code might be trying to hide something,
 even if it looks innocent. But do not reject code just for being simple or for

@@ -149,6 +149,11 @@ def run_agent(user_request: str, session: Session, approval_fn=None, trace: list
             print(f"  → Result: {result}")
             task_context += f"\n[Tool Call] {tool_name}({arguments}) -> {result}"
 
+        elif action == "unsupported":
+            reason = decision.get("reason", "This is outside ANVIL's capabilities.")
+            print(f"  → Task is unsupported (known limitation): {reason}")
+            return f"[UNSUPPORTED] {reason}"
+
         elif action == "no_tool_fits":
             reason = decision.get("reason", "Unknown capability gap.")
             print(f"  → No existing tool fits. Reason: {reason}")

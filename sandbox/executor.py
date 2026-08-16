@@ -1,3 +1,4 @@
+from json import decoder
 import subprocess
 import sys
 import os
@@ -39,16 +40,24 @@ def run_in_sandbox(
 ) -> dict:
     SCRATCH_DIR_ABS = os.path.abspath("scratch").replace("\\", "\\\\")
 
+
     SANDBOX_RESTRICTIONS_HEADER = f'''
 import socket as _socket
 import builtins as _builtins
 import os as _os
 
-def _blocked_socket(*args, **kwargs):
-    raise OSError("Network access is disabled in the ANVIL sandbox.")
+_ALLOWED_HOSTS = {{"api.frankfurter.dev", "api.frankfurter.app", "api.open-meteo.com"}}
+_real_getaddrinfo = _socket.getaddrinfo
 
-_socket.socket = _blocked_socket
-_socket.create_connection = _blocked_socket
+def _restricted_getaddrinfo(host, *args, **kwargs):
+    if host not in _ALLOWED_HOSTS:
+        raise OSError(
+            f"Network access to '{{host}}' is not permitted in the ANVIL sandbox. "
+            f"Allowed hosts: {{sorted(_ALLOWED_HOSTS)}}"
+        )
+    return _real_getaddrinfo(host, *args, **kwargs)
+
+_socket.getaddrinfo = _restricted_getaddrinfo
 
 _SCRATCH_DIR = "{SCRATCH_DIR_ABS}"
 _real_open = _builtins.open

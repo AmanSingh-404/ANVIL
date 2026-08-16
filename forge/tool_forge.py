@@ -45,6 +45,24 @@ class ExampleTool(Tool):
             return {"success": True, "output": result}
         except Exception as e:
             return {"success": False, "error": str(e)}
+
+NETWORK ACCESS: You may use urllib to call these specific allowlisted APIs
+ONLY — no other network access is permitted:
+
+- Currency exchange rates: https://api.frankfurter.dev/v2/rates
+  Example: https://api.frankfurter.dev/v2/rates?base=USD&quotes=INR
+  (parameter is "quotes", NOT "symbols" — this is a v2 API, older examples
+  online use v1 syntax and will fail)
+
+- Weather: https://api.open-meteo.com (see their docs for exact parameters)
+
+For ANY request to these APIs, you MUST set a User-Agent header, or the
+request will be rejected with a 403:
+    req = urllib.request.Request(url, headers={"User-Agent": "ANVIL-Agent/1.0"})
+    urllib.request.urlopen(req, timeout=5)
+
+Always wrap network calls in try/except and return a clean error dict on
+failure — timeouts and API errors are expected, not exceptional.
 """
 
 
